@@ -186,6 +186,17 @@
   }
   .contrast-warn.show{display:block;}
 
+  .encode-error{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--warn);
+    text-align:center;
+    max-width:26ch;
+    line-height:1.5;
+    display:none;
+  }
+  .encode-error.show{display:block;}
+
   .dl-row{
     display:flex;
     gap:8px;
@@ -513,6 +524,7 @@
         </div>
       </div>
       <p class="contrast-warn" id="contrastWarn">Low contrast — this may not scan. Try a darker foreground or lighter background.</p>
+      <p class="encode-error" id="encodeError">Too much data for a QR code at this error-correction level. Try a lower ECC level, shorter content, or remove the logo.</p>
       <div class="dl-row">
         <button class="btn" id="dlPng" disabled>Download PNG</button>
         <button class="btn ghost" id="dlSvg" disabled>Download SVG</button>
@@ -523,11 +535,11 @@
       <div>
         <span class="field-label">Content type</span>
         <div class="type-select" id="typeSelect" role="tablist">
-          <button type="button" role="tab" data-type="text" class="active">Text / URL</button>
-          <button type="button" role="tab" data-type="wifi">Wi-Fi</button>
-          <button type="button" role="tab" data-type="contact">Contact</button>
-          <button type="button" role="tab" data-type="email">Email</button>
-          <button type="button" role="tab" data-type="phone">Phone</button>
+          <button type="button" role="tab" data-type="text" class="active" aria-selected="true">Text / URL</button>
+          <button type="button" role="tab" data-type="wifi" aria-selected="false">Wi-Fi</button>
+          <button type="button" role="tab" data-type="contact" aria-selected="false">Contact</button>
+          <button type="button" role="tab" data-type="email" aria-selected="false">Email</button>
+          <button type="button" role="tab" data-type="phone" aria-selected="false">Phone</button>
         </div>
       </div>
 
@@ -2921,6 +2933,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   var ctx = canvas.getContext('2d');
   var emptyState = document.getElementById('emptyState');
   var contrastWarn = document.getElementById('contrastWarn');
+  var encodeError = document.getElementById('encodeError');
   var dlPngBtn = document.getElementById('dlPng');
   var dlSvgBtn = document.getElementById('dlSvg');
   var formArea = document.getElementById('formArea');
@@ -2992,27 +3005,36 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
   function escVcf(s){ return (s||"").replace(/([\\,;])/g, "\\$1").replace(/\n/g,"\\n"); }
 
+  /* lastFields holds the structured, restorable version of whatever buildContent()
+     last produced. Deliberately excludes secrets (wifi password) so they never
+     touch localStorage. */
+  var lastFields = null;
+
   /* ---------- build the payload string for the current form ---------- */
   function buildContent(){
     if(state.type === "text"){
       var t = document.getElementById('f_text');
-      return t ? t.value.trim() : "";
+      var val = t ? t.value.trim() : "";
+      lastFields = val ? {text: val} : null;
+      return val;
     }
     if(state.type === "wifi"){
       var ssid = document.getElementById('f_ssid').value.trim();
-      if(!ssid) return "";
+      if(!ssid){ lastFields = null; return ""; }
       var pass = document.getElementById('f_pass').value;
       var sec = document.getElementById('f_sec').value;
       var hidden = document.getElementById('f_hidden').checked;
+      lastFields = {ssid: ssid, sec: sec, hidden: hidden}; // password intentionally not stored
       var esc = function(s){ return s.replace(/([\\;,:"])/g, "\\$1"); };
       return "WIFI:T:" + sec + ";S:" + esc(ssid) + ";" + (sec==="nopass" ? "" : "P:" + esc(pass) + ";") + (hidden ? "H:true;" : "") + ";";
     }
     if(state.type === "contact"){
       var name = document.getElementById('f_name').value.trim();
-      if(!name) return "";
+      if(!name){ lastFields = null; return ""; }
       var phone = document.getElementById('f_phone').value.trim();
       var email = document.getElementById('f_email').value.trim();
       var org = document.getElementById('f_org').value.trim();
+      lastFields = {name: name, phone: phone, email: email, org: org};
       var lines = ["BEGIN:VCARD","VERSION:3.0","FN:" + escVcf(name)];
       if(org) lines.push("ORG:" + escVcf(org));
       if(phone) lines.push("TEL:" + escVcf(phone));
@@ -3022,19 +3044,31 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     }
     if(state.type === "email"){
       var to = document.getElementById('f_eto').value.trim();
-      if(!to) return "";
-      var sub = encodeURIComponent(document.getElementById('f_esub').value.trim());
-      var body = encodeURIComponent(document.getElementById('f_ebody').value.trim());
+      if(!to){ lastFields = null; return ""; }
+      var subRaw = document.getElementById('f_esub').value.trim();
+      var bodyRaw = document.getElementById('f_ebody').value.trim();
+      lastFields = {to: to, sub: subRaw, body: bodyRaw};
       var q = [];
-      if(sub) q.push("subject=" + sub);
-      if(body) q.push("body=" + body);
+      if(subRaw) q.push("subject=" + encodeURIComponent(subRaw));
+      if(bodyRaw) q.push("body=" + encodeURIComponent(bodyRaw));
       return "mailto:" + to + (q.length ? "?" + q.join("&") : "");
     }
     if(state.type === "phone"){
       var tel = document.getElementById('f_tel').value.trim();
-      if(!tel) return "";
+      if(!tel){ lastFields = null; return ""; }
+      lastFields = {tel: tel};
       return "tel:" + tel;
     }
+    lastFields = null;
+    return "";
+  }
+
+  function buildHistoryLabel(type, fields){
+    if(type === "text") return fields.text;
+    if(type === "wifi") return "Wi-Fi \u00b7 " + fields.ssid;
+    if(type === "contact") return "Contact \u00b7 " + fields.name;
+    if(type === "email") return "Email \u00b7 " + fields.to;
+    if(type === "phone") return "Phone \u00b7 " + fields.tel;
     return "";
   }
 
@@ -3055,19 +3089,31 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     var content = buildContent();
     var canRender = content.length > 0;
 
+    encodeError.classList.remove('show');
     dlPngBtn.disabled = !canRender;
     dlSvgBtn.disabled = !canRender;
     emptyState.style.display = canRender ? "none" : "block";
     canvas.style.display = canRender ? "block" : "none";
 
     var ratio = contrastRatio(state.fg, state.bg);
-    contrastWarn.classList.toggle('show', ratio < 2.5);
+    contrastWarn.classList.toggle('show', canRender && ratio < 2.5);
 
     if(!canRender){ lastContent = ""; return; }
 
-    var qr = qrcode(0, state.ecc);
-    qr.addData(content);
-    qr.make();
+    var qr;
+    try{
+      qr = qrcode(0, state.ecc);
+      qr.addData(content);
+      qr.make();
+    } catch(err){
+      dlPngBtn.disabled = true;
+      dlSvgBtn.disabled = true;
+      canvas.style.display = "none";
+      contrastWarn.classList.remove('show');
+      encodeError.classList.add('show');
+      lastContent = "";
+      return;
+    }
 
     var count = qr.getModuleCount();
     var cell = state.size / count;
@@ -3152,14 +3198,18 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       el.addEventListener('input', scheduleRender);
       el.addEventListener('change', scheduleRender);
     });
+    // innerHTML-injected autofocus is unreliable across browsers — focus explicitly.
+    var first = formArea.querySelector('input, textarea');
+    if(first) first.focus();
     render();
   }
 
   typeSelect.addEventListener('click', function(e){
     var btn = e.target.closest('button[data-type]');
     if(!btn) return;
-    typeSelect.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+    typeSelect.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
     state.type = btn.getAttribute('data-type');
     renderForm();
   });
@@ -3239,8 +3289,11 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     saveHistory();
   });
 
-  /* ---------- history (localStorage) ---------- */
-  var HKEY = 'qr_offline_history_v1';
+  /* ---------- history (localStorage) ----------
+     v2: stores structured fields per entry (not the raw encoded payload) so
+     restore works for every content type, and so secrets — currently the
+     Wi-Fi password — are never written to disk. Old v1 entries are ignored. */
+  var HKEY = 'qr_offline_history_v2';
 
   function loadHistory(){
     try{
@@ -3249,10 +3302,17 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     }catch(e){ return []; }
   }
   function saveHistory(){
-    if(!lastContent) return;
+    if(!lastContent || !lastFields) return;
     var list = loadHistory();
-    list = list.filter(function(item){ return item.content !== lastContent; });
-    list.unshift({type: state.type, content: lastContent, ts: Date.now()});
+    list = list.filter(function(item){
+      return !(item.type === state.type && JSON.stringify(item.fields) === JSON.stringify(lastFields));
+    });
+    list.unshift({
+      type: state.type,
+      fields: lastFields,
+      label: buildHistoryLabel(state.type, lastFields),
+      ts: Date.now()
+    });
     list = list.slice(0, 10);
     try{ localStorage.setItem(HKEY, JSON.stringify(list)); }catch(e){}
     renderHistory();
@@ -3268,21 +3328,41 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       var chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'hist-chip';
-      var label = item.content.replace(/\s+/g, ' ').trim();
+      var label = (item.label || "").replace(/\s+/g, ' ').trim();
       chip.textContent = label.length > 28 ? label.slice(0,28) + '…' : label;
-      chip.title = label;
+      chip.title = label + (item.type === 'wifi' ? ' (password not saved)' : '');
       chip.addEventListener('click', function(){
         typeSelect.querySelectorAll('button').forEach(function(b){
-          b.classList.toggle('active', b.getAttribute('data-type') === item.type);
+          var match = b.getAttribute('data-type') === item.type;
+          b.classList.toggle('active', match);
+          b.setAttribute('aria-selected', match ? 'true' : 'false');
         });
         state.type = item.type;
         renderForm();
         requestAnimationFrame(function(){
+          var f = item.fields || {};
           if(item.type === 'text'){
-            document.getElementById('f_text').value = item.content;
+            document.getElementById('f_text').value = f.text || "";
+          } else if(item.type === 'wifi'){
+            document.getElementById('f_ssid').value = f.ssid || "";
+            document.getElementById('f_sec').value = f.sec || "WPA";
+            document.getElementById('f_hidden').checked = !!f.hidden;
+            var passEl = document.getElementById('f_pass');
+            passEl.placeholder = "Password not saved — re-enter it";
+          } else if(item.type === 'contact'){
+            document.getElementById('f_name').value = f.name || "";
+            document.getElementById('f_phone').value = f.phone || "";
+            document.getElementById('f_email').value = f.email || "";
+            document.getElementById('f_org').value = f.org || "";
+          } else if(item.type === 'email'){
+            document.getElementById('f_eto').value = f.to || "";
+            document.getElementById('f_esub').value = f.sub || "";
+            document.getElementById('f_ebody').value = f.body || "";
+          } else if(item.type === 'phone'){
+            document.getElementById('f_tel').value = f.tel || "";
           }
+          render();
         });
-        render();
       });
       histList.appendChild(chip);
     });
