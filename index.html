@@ -111,8 +111,21 @@
     padding:6px 10px;
     border-radius:20px;
     white-space:nowrap;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease;
   }
+  .madeby svg{flex-shrink:0; display:block;}
+  .madeby:hover, .madeby:focus-visible{
+    border-color:var(--signal);
+    color:var(--signal);
+  }
+  .madeby:focus-visible{outline:2px solid var(--signal); outline-offset:2px;}
   .madeby b{color:var(--ink); font-weight:600;}
+  .madeby:hover b, .madeby:focus-visible b{color:var(--signal);}
 
   .topbar-right{
     display:flex;
@@ -149,20 +162,6 @@
   .action-status.show{display:block;}
   .action-status.error{color:var(--warn);}
 
-  .field-help{
-    font-family:var(--mono);
-    font-size:11px;
-    color:var(--ink-soft);
-    line-height:1.5;
-    margin:0 0 10px;
-  }
-  .size-hint{
-    font-family:var(--mono);
-    font-size:10.5px;
-    color:var(--ink-soft);
-    margin-top:6px;
-  }
-
   h1{
     font-family:var(--sans);
     font-weight:700;
@@ -194,6 +193,24 @@
   @media (max-width: 720px){
     .board{grid-template-columns:1fr;}
     .preview{border-right:none !important; border-bottom:1px solid var(--line);}
+    /* Comfortable touch targets (~44px) on touch-sized viewports. Left alone
+       on desktop, where a mouse cursor doesn't need the extra padding. */
+    .btn{padding:13px 16px; min-height:44px;}
+    .type-select button{padding:11px 14px; min-height:40px;}
+    .ecc-row button{padding:12px 4px; min-height:40px;}
+  }
+
+  @media print{
+    body{background:#fff !important; padding:0;}
+    h1, .sub, .topbar, .controls, footer, .dl-row, .action-status,
+    .contrast-warn, .encode-error, .empty-state{ display:none !important; }
+    .wrap{max-width:none;}
+    .board{border:none; grid-template-columns:1fr; box-shadow:none;}
+    .preview{border-right:none; padding:0; gap:0;}
+    .finder-frame{padding:0;}
+    .finder-frame::before, .finder-frame::after, .finder-frame .fbl{ display:none; }
+    #qrCanvasWrap{width:70vw; height:70vw; max-width:500px; max-height:500px; background:#fff;}
+    #qrCanvas{width:100% !important; height:100% !important;}
   }
 
   /* ---------- preview pane ---------- */
@@ -206,6 +223,28 @@
     justify-content:center;
     gap:20px;
     position:relative;
+    transition:background-color .15s ease;
+  }
+  .preview.drag-over{
+    background:var(--signal-soft);
+  }
+  .preview.drag-over::after{
+    content:"Drop image to use as center logo";
+    position:absolute;
+    inset:10px;
+    border:2px dashed var(--signal);
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--signal);
+    background:var(--paper-raised);
+    opacity:0.95;
+    pointer-events:none;
+    text-align:center;
+    padding:16px;
   }
   .finder-frame{
     position:relative;
@@ -270,6 +309,19 @@
   }
   .encode-error.show{display:block;}
 
+  .actions{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:200px;
+    opacity:1;
+    overflow:hidden;
+    transition:max-height .2s ease, opacity .15s ease;
+  }
+  .actions.hidden{
+    max-height:0;
+    opacity:0;
+  }
   .dl-row{
     display:flex;
     gap:8px;
@@ -427,6 +479,11 @@
     background:var(--signal-soft);
   }
   .ecc-row button:focus-visible{outline:2px solid var(--signal); outline-offset:2px;}
+
+  @media (max-width: 420px){
+    .ecc-row{gap:4px;}
+    .ecc-row button{font-size:10px; padding:12px 2px; min-height:40px;}
+  }
   .ecc-hint{
     font-family:var(--mono);
     font-size:10.5px;
@@ -434,27 +491,26 @@
     margin-top:6px;
   }
 
-  .size-row{
-    display:flex;
-    align-items:center;
-    gap:12px;
-  }
-  input[type="range"]{
-    flex:1;
-    accent-color:var(--signal);
-  }
-  .size-val{
-    font-family:var(--mono);
-    font-size:12px;
-    color:var(--ink-soft);
-    width:52px;
-    text-align:right;
-  }
-
   .color-row{
     display:flex;
+    align-items:center;
     gap:14px;
   }
+  .swap-colors{
+    width:30px;
+    height:30px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-soft);
+    border-radius:4px;
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+    padding:0;
+    margin-left:auto;
+  }
+  .swap-colors:hover{border-color:var(--signal); color:var(--signal);}
+  .swap-colors:focus-visible{outline:2px solid var(--signal); outline-offset:2px;}
   .color-field{
     display:flex;
     align-items:center;
@@ -585,7 +641,7 @@
     </div>
     <div class="topbar-right">
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">☾</button>
-      <div class="madeby">Made by <b>Rudra</b></div>
+      <a class="madeby" href="https://github.com/rudra-th" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Made by <b>Rudra</b></a>
     </div>
   </div>
 
@@ -601,15 +657,17 @@
           <p class="empty-state" id="emptyState">Start typing —<br>your QR appears here instantly.</p>
         </div>
       </div>
-      <p class="contrast-warn" id="contrastWarn">Low contrast — this may not scan. Try a darker foreground or lighter background.</p>
+      <p class="contrast-warn" id="contrastWarn"></p>
       <p class="encode-error" id="encodeError">Too much data for a QR code at this error-correction level. Try a lower ECC level, shorter content, or remove the logo.</p>
-      <div class="dl-row">
-        <button class="btn" id="dlPng" disabled>Download PNG</button>
-        <button class="btn ghost" id="dlSvg" disabled>Download SVG</button>
-      </div>
-      <div class="dl-row">
-        <button class="btn ghost" id="copyBtn" disabled>Copy image</button>
-        <button class="btn ghost" id="shareBtn" disabled>Share…</button>
+      <div class="actions hidden" id="actions">
+        <div class="dl-row">
+          <button class="btn" id="dlPng" disabled>Download PNG</button>
+          <button class="btn ghost" id="dlSvg" disabled>Download SVG</button>
+        </div>
+        <div class="dl-row">
+          <button class="btn ghost" id="copyBtn" disabled>Copy image</button>
+          <button class="btn ghost" id="shareBtn" disabled>Share…</button>
+        </div>
       </div>
       <p class="action-status" id="actionStatus" role="status" aria-live="polite"></p>
     </div>
@@ -633,22 +691,22 @@
         <div class="adv-body">
 
           <div>
-            <span class="field-label">Damage resistance</span>
-            <div class="ecc-row" id="eccRow">
-              <button type="button" data-ecc="L">Screen only</button>
-              <button type="button" data-ecc="M" class="active">Standard</button>
-              <button type="button" data-ecc="Q">Sticker</button>
-              <button type="button" data-ecc="H">With logo</button>
+            <span class="field-label" id="eccLabel">Damage resistance</span>
+            <div class="ecc-row" id="eccRow" role="group" aria-labelledby="eccLabel">
+              <button type="button" data-ecc="L" aria-pressed="false" title="Level L — recovers from ~7% damage">Screen only</button>
+              <button type="button" data-ecc="M" class="active" aria-pressed="true" title="Level M — recovers from ~15% damage">Standard</button>
+              <button type="button" data-ecc="Q" aria-pressed="false" title="Level Q — recovers from ~25% damage">Sticker</button>
+              <button type="button" data-ecc="H" aria-pressed="false" title="Level H — recovers from ~30% damage">With logo</button>
             </div>
             <p class="ecc-hint" id="eccHint">Good default for anything printed normally.</p>
           </div>
 
           <div>
-            <span class="field-label">Image size</span>
-            <div class="ecc-row" id="sizeRow">
-              <button type="button" data-size="256">Screen</button>
-              <button type="button" data-size="512" class="active">Print</button>
-              <button type="button" data-size="1024">Large print</button>
+            <span class="field-label" id="sizeLabel">Image size</span>
+            <div class="ecc-row" id="sizeRow" role="group" aria-labelledby="sizeLabel">
+              <button type="button" data-size="256" aria-pressed="false" title="256 × 256px">Screen</button>
+              <button type="button" data-size="512" class="active" aria-pressed="true" title="512 × 512px">Print</button>
+              <button type="button" data-size="1024" aria-pressed="false" title="1024 × 1024px">Large print</button>
             </div>
             <p class="ecc-hint" id="sizeHint">512px — sharp on screens, fine for most prints.</p>
           </div>
@@ -662,6 +720,7 @@
               <label class="color-field">Background
                 <input type="color" id="bgColor" value="#ffffff">
               </label>
+              <button type="button" class="swap-colors" id="swapColors" title="Swap colors" aria-label="Swap code and background colors">⇄</button>
             </div>
           </div>
 
@@ -686,7 +745,7 @@
           <button class="clear-hist" id="clearHist" type="button">clear</button>
         </div>
         <div class="hist-list" id="histList">
-          <span class="hist-empty">Codes you generate will show up here.</span>
+          <span class="hist-empty">Codes you download, copy, or share will show up here.</span>
         </div>
       </div>
 
@@ -695,7 +754,6 @@
 
   <footer>
     <span>No data leaves this tab.</span>
-    <span>Made by Rudra</span>
   </footer>
 </div>
 
@@ -3021,6 +3079,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   var contrastWarn = document.getElementById('contrastWarn');
   var encodeError = document.getElementById('encodeError');
   var dlPngBtn = document.getElementById('dlPng');
+  var actionsEl = document.getElementById('actions');
   var dlSvgBtn = document.getElementById('dlSvg');
   var copyBtn = document.getElementById('copyBtn');
   var shareBtn = document.getElementById('shareBtn');
@@ -3061,40 +3120,40 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   var FORMS = {
     text: function(){
       return '<div class="form-grid">' +
-        '<div><span class="field-label">Text or URL</span>' +
-        '<textarea id="f_text" placeholder="https://example.com or any text" autofocus></textarea></div>' +
+        '<div><label class="field-label" for="f_text">Text or URL</label>' +
+        '<textarea id="f_text" placeholder="https://example.com or any text"></textarea></div>' +
         '</div>';
     },
     wifi: function(){
       return '<div class="form-grid">' +
-        '<div><span class="field-label">Network name (SSID)</span><input type="text" id="f_ssid" placeholder="Home-WiFi"></div>' +
-        '<div><span class="field-label">Password</span><input type="password" id="f_pass" placeholder="Leave blank if open"></div>' +
+        '<div><label class="field-label" for="f_ssid">Network name (SSID)</label><input type="text" id="f_ssid" placeholder="Home-WiFi"></div>' +
+        '<div><label class="field-label" for="f_pass">Password</label><input type="password" id="f_pass" placeholder="Leave blank if open"></div>' +
         '<div class="form-row-2">' +
-          '<div><span class="field-label">Security</span><select id="f_sec"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">None (open)</option></select></div>' +
+          '<div><label class="field-label" for="f_sec">Security</label><select id="f_sec"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">None (open)</option></select></div>' +
           '<div style="display:flex;align-items:flex-end;"><label class="checkline"><input type="checkbox" id="f_hidden"> Hidden network</label></div>' +
         '</div>' +
         '</div>';
     },
     contact: function(){
       return '<div class="form-grid">' +
-        '<div><span class="field-label">Full name</span><input type="text" id="f_name" placeholder="Alex Rivera"></div>' +
+        '<div><label class="field-label" for="f_name">Full name</label><input type="text" id="f_name" placeholder="Alex Rivera"></div>' +
         '<div class="form-row-2">' +
-          '<div><span class="field-label">Phone</span><input type="tel" id="f_phone" placeholder="+1 555 0100"></div>' +
-          '<div><span class="field-label">Email</span><input type="email" id="f_email" placeholder="alex@example.com"></div>' +
+          '<div><label class="field-label" for="f_phone">Phone</label><input type="tel" id="f_phone" placeholder="+1 555 0100"></div>' +
+          '<div><label class="field-label" for="f_email">Email</label><input type="email" id="f_email" placeholder="alex@example.com"></div>' +
         '</div>' +
-        '<div><span class="field-label">Organization (optional)</span><input type="text" id="f_org" placeholder="Company name"></div>' +
+        '<div><label class="field-label" for="f_org">Organization (optional)</label><input type="text" id="f_org" placeholder="Company name"></div>' +
         '</div>';
     },
     email: function(){
       return '<div class="form-grid">' +
-        '<div><span class="field-label">To</span><input type="email" id="f_eto" placeholder="someone@example.com"></div>' +
-        '<div><span class="field-label">Subject (optional)</span><input type="text" id="f_esub" placeholder="Subject"></div>' +
-        '<div><span class="field-label">Message (optional)</span><textarea id="f_ebody" placeholder="Message"></textarea></div>' +
+        '<div><label class="field-label" for="f_eto">To</label><input type="email" id="f_eto" placeholder="someone@example.com"></div>' +
+        '<div><label class="field-label" for="f_esub">Subject (optional)</label><input type="text" id="f_esub" placeholder="Subject"></div>' +
+        '<div><label class="field-label" for="f_ebody">Message (optional)</label><textarea id="f_ebody" placeholder="Message"></textarea></div>' +
         '</div>';
     },
     phone: function(){
       return '<div class="form-grid">' +
-        '<div><span class="field-label">Phone number</span><input type="tel" id="f_tel" placeholder="+1 555 0182"></div>' +
+        '<div><label class="field-label" for="f_tel">Phone number</label><input type="tel" id="f_tel" placeholder="+1 555 0182"></div>' +
         '</div>';
     }
   };
@@ -3105,6 +3164,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
      last produced. Deliberately excludes secrets (wifi password) so they never
      touch localStorage. */
   var lastFields = null;
+  var wifiNeedsPassword = false;
 
   /* ---------- build the payload string for the current form ---------- */
   function buildContent(){
@@ -3112,25 +3172,28 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       var t = document.getElementById('f_text');
       var val = t ? t.value.trim() : "";
       lastFields = val ? {text: val} : null;
+      wifiNeedsPassword = false;
       return val;
     }
     if(state.type === "wifi"){
       var ssid = document.getElementById('f_ssid').value.trim();
-      if(!ssid){ lastFields = null; return ""; }
+      if(!ssid){ lastFields = null; wifiNeedsPassword = false; return ""; }
       var pass = document.getElementById('f_pass').value;
       var sec = document.getElementById('f_sec').value;
       var hidden = document.getElementById('f_hidden').checked;
       lastFields = {ssid: ssid, sec: sec, hidden: hidden}; // password intentionally not stored
+      wifiNeedsPassword = (sec !== "nopass" && pass.length === 0);
       var esc = function(s){ return s.replace(/([\\;,:"])/g, "\\$1"); };
       return "WIFI:T:" + sec + ";S:" + esc(ssid) + ";" + (sec==="nopass" ? "" : "P:" + esc(pass) + ";") + (hidden ? "H:true;" : "") + ";";
     }
     if(state.type === "contact"){
       var name = document.getElementById('f_name').value.trim();
-      if(!name){ lastFields = null; return ""; }
+      if(!name){ lastFields = null; wifiNeedsPassword = false; return ""; }
       var phone = document.getElementById('f_phone').value.trim();
       var email = document.getElementById('f_email').value.trim();
       var org = document.getElementById('f_org').value.trim();
       lastFields = {name: name, phone: phone, email: email, org: org};
+      wifiNeedsPassword = false;
       var lines = ["BEGIN:VCARD","VERSION:3.0","FN:" + escVcf(name)];
       if(org) lines.push("ORG:" + escVcf(org));
       if(phone) lines.push("TEL:" + escVcf(phone));
@@ -3140,10 +3203,11 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     }
     if(state.type === "email"){
       var to = document.getElementById('f_eto').value.trim();
-      if(!to){ lastFields = null; return ""; }
+      if(!to){ lastFields = null; wifiNeedsPassword = false; return ""; }
       var subRaw = document.getElementById('f_esub').value.trim();
       var bodyRaw = document.getElementById('f_ebody').value.trim();
       lastFields = {to: to, sub: subRaw, body: bodyRaw};
+      wifiNeedsPassword = false;
       var q = [];
       if(subRaw) q.push("subject=" + encodeURIComponent(subRaw));
       if(bodyRaw) q.push("body=" + encodeURIComponent(bodyRaw));
@@ -3151,11 +3215,13 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     }
     if(state.type === "phone"){
       var tel = document.getElementById('f_tel').value.trim();
-      if(!tel){ lastFields = null; return ""; }
+      if(!tel){ lastFields = null; wifiNeedsPassword = false; return ""; }
       lastFields = {tel: tel};
+      wifiNeedsPassword = false;
       return "tel:" + tel;
     }
     lastFields = null;
+    wifiNeedsPassword = false;
     return "";
   }
 
@@ -3166,6 +3232,14 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     if(type === "email") return "Email \u00b7 " + fields.to;
     if(type === "phone") return "Phone \u00b7 " + fields.tel;
     return "";
+  }
+
+  function truncateMiddle(str, max){
+    if(str.length <= max) return str;
+    var keep = max - 1; // reserve one char for the ellipsis
+    var front = Math.ceil(keep * 0.6);
+    var back = keep - front;
+    return str.slice(0, front) + '\u2026' + str.slice(str.length - back);
   }
 
   /* ---------- contrast check (WCAG-style relative luminance) ---------- */
@@ -3190,33 +3264,62 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     dlSvgBtn.disabled = !canRender;
     copyBtn.disabled = !canRender;
     shareBtn.disabled = !canRender;
+    actionsEl.classList.toggle('hidden', !canRender);
     emptyState.style.display = canRender ? "none" : "block";
     canvas.style.display = canRender ? "block" : "none";
 
     var ratio = contrastRatio(state.fg, state.bg);
-    contrastWarn.classList.toggle('show', canRender && ratio < 2.5);
+    var inverted = relLuminance(state.fg) > relLuminance(state.bg);
+    var atMaxSize = false;
 
-    if(!canRender){ lastContent = ""; return; }
+    if(!canRender){ lastContent = ""; }
 
     var qr;
-    try{
-      qr = qrcode(0, state.ecc);
-      qr.addData(content);
-      qr.make();
-    } catch(err){
-      dlPngBtn.disabled = true;
-      dlSvgBtn.disabled = true;
-      copyBtn.disabled = true;
-      shareBtn.disabled = true;
-      canvas.style.display = "none";
-      contrastWarn.classList.remove('show');
-      encodeError.classList.add('show');
-      lastContent = "";
-      return;
+    if(canRender){
+      try{
+        qr = qrcode(0, state.ecc);
+        qr.addData(content);
+        qr.make();
+        // typeNumber 40 is the biggest QR code that exists — if the encoder had
+        // to reach for it, there's no bigger size left to fall back on.
+        var typeNumber = (qr.getModuleCount() - 17) / 4;
+        atMaxSize = (typeNumber >= 40);
+      } catch(err){
+        dlPngBtn.disabled = true;
+        dlSvgBtn.disabled = true;
+        copyBtn.disabled = true;
+        shareBtn.disabled = true;
+        actionsEl.classList.add('hidden');
+        canvas.style.display = "none";
+        contrastWarn.classList.remove('show');
+        encodeError.classList.add('show');
+        lastContent = "";
+        return;
+      }
     }
 
+    if(canRender && ratio < 2.5){
+      contrastWarn.textContent = 'Low contrast — this may not scan. Try a darker foreground or lighter background.';
+      contrastWarn.classList.add('show');
+    } else if(canRender && inverted){
+      contrastWarn.textContent = 'Inverted colors — a light code on a dark background often fails to scan, even with good contrast. Tap ⇄ to flip them.';
+      contrastWarn.classList.add('show');
+    } else if(canRender && wifiNeedsPassword){
+      contrastWarn.textContent = 'No password set, but security isn\'t "None" — this code won\'t be able to join the network.';
+      contrastWarn.classList.add('show');
+    } else if(canRender && atMaxSize){
+      contrastWarn.textContent = "This is as big as a QR code gets — you're right at the limit. Shorten the content a little for a safety margin.";
+      contrastWarn.classList.add('show');
+    } else {
+      contrastWarn.classList.remove('show');
+    }
+
+    if(!canRender){ return; }
+
     var count = qr.getModuleCount();
-    var cell = state.size / count;
+    var quiet = 4; // spec-required quiet zone, in modules, on each side
+    var totalModules = count + quiet * 2;
+    var cell = state.size / totalModules;
 
     canvas.width = state.size;
     canvas.height = state.size;
@@ -3229,55 +3332,68 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     for(var r=0; r<count; r++){
       for(var c=0; c<count; c++){
         if(qr.isDark(r,c)){
-          ctx.fillRect(Math.round(c*cell), Math.round(r*cell), Math.ceil(cell), Math.ceil(cell));
+          ctx.fillRect(Math.round((c+quiet)*cell), Math.round((r+quiet)*cell), Math.ceil(cell), Math.ceil(cell));
         }
       }
     }
 
     if(state.logoDataUrl){
-      drawLogoThenBuildSvg(qr, count, cell, content);
+      drawLogoThenBuildSvg(qr, count, quiet, cell, content);
     } else {
-      currentSvg = buildSvg(qr, count, content, null);
+      currentSvg = buildSvg(qr, count, quiet, content, null);
     }
 
     lastContent = content;
   }
 
   var logoImgCache = null;
-  function drawLogoThenBuildSvg(qr, count, cell, content){
+  function drawLogoThenBuildSvg(qr, count, quiet, cell, content){
     if(!logoImgCache || logoImgCache.src !== state.logoDataUrl){
       logoImgCache = new Image();
-      logoImgCache.onload = function(){ paintLogo(qr, count, cell, content); };
+      logoImgCache.onload = function(){ paintLogo(qr, count, quiet, cell, content); };
       logoImgCache.src = state.logoDataUrl;
     } else {
-      paintLogo(qr, count, cell, content);
+      paintLogo(qr, count, quiet, cell, content);
     }
   }
-  function paintLogo(qr, count, cell, content){
-    var logoSize = state.size * 0.22;
-    var pos = (state.size - logoSize) / 2;
+  function paintLogo(qr, count, quiet, cell, content){
+    var codeOffset = quiet * cell;
+    var codeSize = count * cell;
+    var logoSize = codeSize * 0.22;
+    var pos = codeOffset + (codeSize - logoSize) / 2;
     ctx.fillStyle = state.bg;
     var pad = logoSize * 0.12;
     ctx.fillRect(pos-pad, pos-pad, logoSize+pad*2, logoSize+pad*2);
-    ctx.drawImage(logoImgCache, pos, pos, logoSize, logoSize);
-    currentSvg = buildSvg(qr, count, content, {img: state.logoDataUrl, size: logoSize, pos: pos, pad: pad});
+
+    // Center-crop to a square instead of stretching non-square logos.
+    var iw = logoImgCache.naturalWidth || logoImgCache.width;
+    var ih = logoImgCache.naturalHeight || logoImgCache.height;
+    var sSize = Math.min(iw, ih);
+    var sx = (iw - sSize) / 2;
+    var sy = (ih - sSize) / 2;
+    ctx.drawImage(logoImgCache, sx, sy, sSize, sSize, pos, pos, logoSize, logoSize);
+
+    currentSvg = buildSvg(qr, count, quiet, content, {img: state.logoDataUrl, size: logoSize, pos: pos, pad: pad});
   }
 
-  function buildSvg(qr, count, content, logo){
-    var cell = state.size / count;
+  function buildSvg(qr, count, quiet, content, logo){
+    var totalModules = count + quiet * 2;
+    var cell = state.size / totalModules;
+    var offset = quiet * cell;
     var parts = [];
     parts.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + state.size + ' ' + state.size + '" width="' + state.size + '" height="' + state.size + '">');
     parts.push('<rect width="100%" height="100%" fill="' + state.bg + '"/>');
     for(var r=0; r<count; r++){
       for(var c=0; c<count; c++){
         if(qr.isDark(r,c)){
-          parts.push('<rect x="' + (c*cell).toFixed(2) + '" y="' + (r*cell).toFixed(2) + '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '" fill="' + state.fg + '"/>');
+          parts.push('<rect x="' + (offset + c*cell).toFixed(2) + '" y="' + (offset + r*cell).toFixed(2) + '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '" fill="' + state.fg + '"/>');
         }
       }
     }
     if(logo){
       parts.push('<rect x="' + (logo.pos-logo.pad).toFixed(2) + '" y="' + (logo.pos-logo.pad).toFixed(2) + '" width="' + (logo.size+logo.pad*2).toFixed(2) + '" height="' + (logo.size+logo.pad*2).toFixed(2) + '" fill="' + state.bg + '"/>');
-      parts.push('<image href="' + logo.img + '" x="' + logo.pos.toFixed(2) + '" y="' + logo.pos.toFixed(2) + '" width="' + logo.size.toFixed(2) + '" height="' + logo.size.toFixed(2) + '"/>');
+      // xMidYMid slice = scale to cover then crop overflow, matching the canvas center-crop above (not a stretch).
+      parts.push('<image href="' + logo.img + '" x="' + logo.pos.toFixed(2) + '" y="' + logo.pos.toFixed(2) + '" width="' + logo.size.toFixed(2) + '" height="' + logo.size.toFixed(2) + '" preserveAspectRatio="xMidYMid slice"/>');
     }
     parts.push('</svg>');
     return parts.join('');
@@ -3290,23 +3406,92 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     }, 220);
   }
 
+  /* ---------- per-tab drafts, so switching content type doesn't wipe input ---------- */
+  var drafts = {};
+
+  function captureDraft(){
+    var f = {};
+    if(state.type === 'text'){
+      var t = document.getElementById('f_text');
+      if(t) f.text = t.value;
+    } else if(state.type === 'wifi'){
+      var ssidEl = document.getElementById('f_ssid');
+      if(ssidEl){
+        f.ssid = ssidEl.value;
+        f.pass = document.getElementById('f_pass').value;
+        f.sec = document.getElementById('f_sec').value;
+        f.hidden = document.getElementById('f_hidden').checked;
+      }
+    } else if(state.type === 'contact'){
+      var nameEl = document.getElementById('f_name');
+      if(nameEl){
+        f.name = nameEl.value;
+        f.phone = document.getElementById('f_phone').value;
+        f.email = document.getElementById('f_email').value;
+        f.org = document.getElementById('f_org').value;
+      }
+    } else if(state.type === 'email'){
+      var toEl = document.getElementById('f_eto');
+      if(toEl){
+        f.to = toEl.value;
+        f.sub = document.getElementById('f_esub').value;
+        f.body = document.getElementById('f_ebody').value;
+      }
+    } else if(state.type === 'phone'){
+      var telEl = document.getElementById('f_tel');
+      if(telEl) f.tel = telEl.value;
+    }
+    drafts[state.type] = f;
+  }
+
+  function applyDraft(type){
+    var f = drafts[type];
+    if(!f) return;
+    if(type === 'text'){
+      var t = document.getElementById('f_text'); if(t) t.value = f.text || "";
+    } else if(type === 'wifi'){
+      document.getElementById('f_ssid').value = f.ssid || "";
+      document.getElementById('f_pass').value = f.pass || "";
+      document.getElementById('f_sec').value = f.sec || "WPA";
+      document.getElementById('f_hidden').checked = !!f.hidden;
+    } else if(type === 'contact'){
+      document.getElementById('f_name').value = f.name || "";
+      document.getElementById('f_phone').value = f.phone || "";
+      document.getElementById('f_email').value = f.email || "";
+      document.getElementById('f_org').value = f.org || "";
+    } else if(type === 'email'){
+      document.getElementById('f_eto').value = f.to || "";
+      document.getElementById('f_esub').value = f.sub || "";
+      document.getElementById('f_ebody').value = f.body || "";
+    } else if(type === 'phone'){
+      document.getElementById('f_tel').value = f.tel || "";
+    }
+  }
+
   /* ---------- form area rendering ---------- */
-  function renderForm(){
+  function renderForm(skipFocus){
     formArea.innerHTML = FORMS[state.type]();
     var inputs = formArea.querySelectorAll('input, textarea, select');
     inputs.forEach(function(el){
       el.addEventListener('input', scheduleRender);
       el.addEventListener('change', scheduleRender);
     });
-    // innerHTML-injected autofocus is unreliable across browsers — focus explicitly.
-    var first = formArea.querySelector('input, textarea');
-    if(first) first.focus();
+    applyDraft(state.type);
+    if(!skipFocus){
+      // innerHTML-injected autofocus is unreliable across browsers — focus explicitly.
+      // Only done here (a direct result of the user's own click), never on initial
+      // page load, where autofocus would silently displace a keyboard/screen-reader
+      // user's position before they've taken any action themselves.
+      var first = formArea.querySelector('input, textarea');
+      if(first) first.focus();
+    }
     render();
   }
 
   typeSelect.addEventListener('click', function(e){
     var btn = e.target.closest('button[data-type]');
     if(!btn) return;
+    captureDraft();
     typeSelect.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
@@ -3317,8 +3502,9 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   eccRow.addEventListener('click', function(e){
     var btn = e.target.closest('button[data-ecc]');
     if(!btn) return;
-    eccRow.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+    eccRow.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
     btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
     state.ecc = btn.getAttribute('data-ecc');
     eccHint.textContent = ECC_HINTS[state.ecc];
     render();
@@ -3327,8 +3513,9 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   sizeRow.addEventListener('click', function(e){
     var btn = e.target.closest('button[data-size]');
     if(!btn) return;
-    sizeRow.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+    sizeRow.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
     btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
     state.size = parseInt(btn.getAttribute('data-size'), 10);
     sizeHint.textContent = SIZE_HINTS[state.size];
     render();
@@ -3337,9 +3524,27 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   fgColor.addEventListener('input', function(){ state.fg = fgColor.value; render(); });
   bgColor.addEventListener('input', function(){ state.bg = bgColor.value; render(); });
 
-  logoInput.addEventListener('change', function(){
-    var file = logoInput.files[0];
+  document.getElementById('swapColors').addEventListener('click', function(){
+    var tmp = fgColor.value;
+    fgColor.value = bgColor.value;
+    bgColor.value = tmp;
+    state.fg = fgColor.value;
+    state.bg = bgColor.value;
+    render();
+  });
+
+  var LOGO_MAX_BYTES = 8 * 1024 * 1024; // 8MB — generous, but stops someone dropping a 200MB raw photo and hanging the tab
+
+  function loadLogoFile(file){
     if(!file) return;
+    if(file.type && file.type.indexOf('image/') !== 0){
+      showActionStatus("That doesn't look like an image file.", true);
+      return;
+    }
+    if(file.size > LOGO_MAX_BYTES){
+      showActionStatus("That image is too large (max 8MB) — try a smaller file.", true);
+      return;
+    }
     var reader = new FileReader();
     reader.onload = function(e){
       state.logoDataUrl = e.target.result;
@@ -3348,12 +3553,23 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       logoClear.style.display = 'inline';
       if(state.ecc !== 'H'){
         state.ecc = 'H';
-        eccRow.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-ecc')==='H'); });
+        eccRow.querySelectorAll('button').forEach(function(b){
+          var match = b.getAttribute('data-ecc')==='H';
+          b.classList.toggle('active', match);
+          b.setAttribute('aria-pressed', match ? 'true' : 'false');
+        });
         eccHint.textContent = ECC_HINTS.H + " (switched automatically for the logo.)";
       }
       render();
     };
+    reader.onerror = function(){
+      showActionStatus("Couldn't read that image — try a different file.", true);
+    };
     reader.readAsDataURL(file);
+  }
+
+  logoInput.addEventListener('change', function(){
+    loadLogoFile(logoInput.files[0]);
   });
   logoClear.addEventListener('click', function(){
     state.logoDataUrl = null;
@@ -3362,6 +3578,32 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     logoClear.style.display = 'none';
     logoInput.value = "";
     render();
+  });
+
+  /* ---------- drag-and-drop logo onto the QR preview ---------- */
+  var previewPanel = document.querySelector('.preview');
+  ['dragenter','dragover'].forEach(function(evt){
+    previewPanel.addEventListener(evt, function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      previewPanel.classList.add('drag-over');
+    });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    previewPanel.addEventListener(evt, function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(evt === 'dragleave' && previewPanel.contains(e.relatedTarget)) return;
+      previewPanel.classList.remove('drag-over');
+    });
+  });
+  previewPanel.addEventListener('drop', function(e){
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(!file) return;
+    loadLogoFile(file);
+    // surface the logo control so the user can see/undo what just happened
+    var advDetails = document.querySelector('details.adv');
+    if(advDetails) advDetails.open = true;
   });
 
   /* ---------- downloads ---------- */
@@ -3380,6 +3622,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       var url = URL.createObjectURL(blob);
       triggerDownload(url, 'qr-code.png');
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      showActionStatus('Downloaded — check your downloads folder.');
       saveHistory();
     }, 'image/png');
   });
@@ -3389,6 +3632,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     var blob = new Blob([currentSvg], {type: 'image/svg+xml'});
     var url = URL.createObjectURL(blob);
     triggerDownload(url, 'qr-code.svg');
+    showActionStatus('Downloaded — check your downloads folder.');
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     saveHistory();
   });
@@ -3511,7 +3755,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   function renderHistory(){
     var list = loadHistory();
     if(!list.length){
-      histList.innerHTML = '<span class="hist-empty">Codes you generate will show up here.</span>';
+      histList.innerHTML = '<span class="hist-empty">Codes you download, copy, or share will show up here.</span>';
       return;
     }
     histList.innerHTML = "";
@@ -3520,7 +3764,11 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       chip.type = 'button';
       chip.className = 'hist-chip';
       var label = (item.label || "").replace(/\s+/g, ' ').trim();
-      chip.textContent = label.length > 28 ? label.slice(0,28) + '…' : label;
+      // Middle-truncate, not end-truncate: two history entries that share a
+      // prefix (e.g. the same domain) would otherwise render as visually
+      // identical chips, since the differentiating part is exactly what
+      // end-truncation cuts off.
+      chip.textContent = truncateMiddle(label, 28);
       chip.title = label + (item.type === 'wifi' ? ' (password not saved)' : '');
       chip.addEventListener('click', function(){
         typeSelect.querySelectorAll('button').forEach(function(b){
@@ -3558,7 +3806,22 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
       histList.appendChild(chip);
     });
   }
+  var clearHistArmed = false;
+  var clearHistTimer = null;
   clearHist.addEventListener('click', function(){
+    if(!clearHistArmed){
+      clearHistArmed = true;
+      clearHist.textContent = 'sure?';
+      clearTimeout(clearHistTimer);
+      clearHistTimer = setTimeout(function(){
+        clearHistArmed = false;
+        clearHist.textContent = 'clear';
+      }, 2500);
+      return;
+    }
+    clearTimeout(clearHistTimer);
+    clearHistArmed = false;
+    clearHist.textContent = 'clear';
     try{ localStorage.removeItem(HKEY); }catch(e){}
     renderHistory();
   });
@@ -3566,7 +3829,7 @@ qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
   /* ---------- init ---------- */
   eccHint.textContent = ECC_HINTS.M;
   sizeHint.textContent = SIZE_HINTS[state.size];
-  renderForm();
+  renderForm(true);
   renderHistory();
 
 })();
