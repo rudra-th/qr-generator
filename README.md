@@ -1,8 +1,10 @@
+
 # QR / Offline
 
 **A QR code generator that runs entirely in your browser. No server. No API calls. No tracking. Close your Wi-Fi — it still works.**
 
 🔗 **[qrcodeit.netlify.app](https://qrcodeit.netlify.app)**
+<img width="900" alt="QR Offline preview" src="https://github.com/user-attachments/assets/3dabaeb8-b9f4-4e0e-aac6-cc568d806773" />
 
 ---
 
