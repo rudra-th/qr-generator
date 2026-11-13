@@ -1,84 +1,111 @@
-
 # QR / Offline
 
-**A QR code generator that runs entirely in your browser. No server. No API calls. No tracking. Close your Wi-Fi — it still works.**
+**Scan and make QR codes entirely in your browser. No server. No API calls. No tracking. Close your Wi-Fi — it still works.**
 
 🔗 **[qrcodeit.netlify.app](https://qrcodeit.netlify.app)**
-<img width="900" alt="QR Offline preview" src="https://github.com/user-attachments/assets/3dabaeb8-b9f4-4e0e-aac6-cc568d806773" />
 
 ---
 
 ## What it does
 
-You type something. A QR code appears instantly. That's it.
+Two things, and both happen on your device.
 
-No sign-up, no "generate" button to click, no spinner while a server does the work. Everything — the encoding, the error correction math, the canvas rendering — happens locally in your browser the moment you start typing.
+**Scan.** Point your camera at a code, or drop in a screenshot. The frame is decoded by code running in the page — nothing is uploaded, nothing is recorded. It reads QR codes plus the common 1D formats (EAN, UPC, Code 128, Code 39, ITF), and it does not give up on the first miss: a fast pass handles the easy frames, and a heavier decoder is loaded only when a code is stubborn, rotated, damaged, or badly lit.
 
-It supports five content types out of the box:
+**Create.** Type something and a QR code appears. No "generate" button, no spinner while a server thinks about it. The encoding, the error-correction maths, and the rendering all run locally the moment you type.
 
-- **Text & URLs** — paste any link or plain text
+Seven content types:
+
+- **Text & Links** — paste any link or plain text
 - **Wi-Fi** — WPA/WPA2, WEP, or open networks; hidden networks too
-- **Contact** — generates a proper vCard 3.0 that phones can save directly
+- **Contact** — a proper vCard 3.0 that phones can save directly
 - **Email** — pre-fills To, Subject, and Body when scanned
-- **Phone** — opens the dialer on any phone
+- **Phone** — opens the dialer
+- **Message** — opens an SMS draft
+- **Location** — a geo pin that opens in maps
+
+Whatever you scan or create lands in **Recent**, on this device only, so you can get back to it later.
 
 ---
 
 ## Features
 
 **Offline-first by design**
-The entire app is a single HTML file. No CDN dependencies, no external fonts, no analytics scripts. You could save it to your desktop and it would work forever with no internet.
+One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs — the encoder, both decoders — is checked in next to `index.html`. Once the page has loaded it never touches the network again, and it will keep working with the Wi-Fi off.
 
-**Custom colors**
-Change the foreground and background to anything. There's a live contrast warning if your combination is likely to fail on a scanner — and a separate warning if you've accidentally inverted them (light code on dark background often won't scan, even with technically good contrast).
+**Scanning that works on real phones**
+The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does not hijack it into fullscreen. Decoding runs through whatever the device does best: the native `BarcodeDetector` where it exists, [jsQR](https://github.com/cozmo/jsQR) everywhere else (that is the iPhone path), and [ZXing](https://github.com/zxing-js/library) as the escalation for 1D codes and difficult frames. The live loop measures how long each decode takes and backs off the resolution on slow hardware rather than dropping frames forever.
+
+**Upload, paste, or drop**
+No camera permission? Use a photo you already have. You can also paste a screenshot straight from the clipboard, or drag an image onto the scanner. Small screenshots are upscaled before decoding, because a 200px screenshot of a code is mostly noise at native size.
+
+**Actions that match the code**
+A scanned link offers *Open link*. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
+
+**Custom colours**
+Any foreground and background. There is a live contrast warning if your pair is likely to fail on a scanner, and a separate warning if you inverted them — a light code on a dark background often will not scan even with technically good contrast.
 
 **Center logo**
-Drop an image onto the preview pane or use the file picker. The app automatically bumps error correction to Level H and crops your logo to a square so it sits cleanly in the center. Up to 8MB.
+Use the file picker. Error correction jumps to Level H automatically and the logo is cropped square so the code still reads. Up to 8MB.
 
-**Four error correction levels**
-- **Screen only (L)** — minimal data, fastest scan
-- **Standard (M)** — good default for printing
-- **Sticker (Q)** — handles wear and tear
-- **With logo (H)** — recovers from ~30% damage; required when you add a logo
+**Four error-correction levels**
+- **Screen (L)** — smallest code, fine when it only ever appears on a display
+- **Standard (M)** — good default for normal printing
+- **Sticker (Q)** — for things that get handled
+- **Rough use (H)** — recovers from ~30% damage; required with a logo
 
 **Three output sizes**
-256px for chat/screens, 512px for most prints, 1024px for posters or banners.
+256px for chat and screens, 512px for most printing, 1024px for posters.
 
 **Download as PNG or SVG**
-PNG for sharing anywhere. SVG for scaling to any size without quality loss — useful if you're dropping the QR code into a design tool.
+PNG for sharing anywhere. SVG for scaling without quality loss in a design tool.
 
 **Copy & Share**
-Copy the QR directly to your clipboard (works on HTTPS). On mobile, the Share button hands it off to your OS share sheet so you can send it over WhatsApp, Messages, or save it to Photos.
-
-**History**
-The last 10 codes you generated are saved locally. Click any chip to restore the form. Wi-Fi passwords are intentionally never saved to history.
-
-**Dark mode**
-Follows your system preference on first load. Toggle any time. Preference is remembered.
+Copy the image to your clipboard (HTTPS or localhost), or hand it to the OS share sheet on mobile.
 
 **Print-ready**
-`Ctrl+P` / `Cmd+P` hides every control and prints just the QR code.
+`Ctrl+P` / `Cmd+P` hides every control and prints just the code.
+
+**Light, dark, or system**
+Follows your system preference by default. The QR preview is always pure white, in both themes, because that is what scans.
 
 ---
 
 ## Privacy
 
-The privacy model is simple: **nothing ever leaves your device.**
+The model is simple: **nothing ever leaves your device.**
 
 - No network requests after the page loads
-- History lives in your browser's `localStorage`, never sent anywhere
-- Wi-Fi passwords are explicitly excluded from history storage
+- The camera stream is drawn into a canvas in this tab and decoded there — it is never recorded, uploaded, or stored
+- Uploaded photos are decoded in the page and discarded
+- History lives in `localStorage` and is never sent anywhere
+- Wi-Fi passwords are never written to history — only the network name and security type are kept
 - No cookies, no analytics, no third-party scripts
 
 ---
 
 ## Tech
 
-Single HTML file (~1600 lines). No build step, no dependencies, no `node_modules`.
+No build step, no `node_modules`, no bundler. Plain HTML, CSS, and ES5-flavoured JavaScript that runs as-is.
 
-- QR encoding: [qrcode.js](https://github.com/davidshimjs/qrcodejs) by Kazuhiko Arase (MIT) — vendored inline so there's no CDN call
-- Rendering: HTML5 Canvas for the preview, hand-built SVG for downloads
-- Storage: `localStorage` only, for theme preference and history
+```
+index.html        app shell, three views, result panel, settings
+style.css         the whole design system (light + dark)
+js/qr.js          encoder + payload building/parsing + SVG export
+js/scanner.js     camera lifecycle and the decode pipeline
+js/store.js       settings and history in localStorage
+js/app.js         views, create flow, scan flow, history
+jsqr.js           vendored jsQR (Apache-2.0)
+zxing.min.js      vendored ZXing UMD (Apache-2.0), loaded on demand
+```
+
+- QR encoding: [qrcode.js](https://github.com/davidshimjs/qrcodejs) by Kazuhiko Arase (MIT), vendored
+- Live decoding: native `BarcodeDetector` → jsQR → ZXing
+- Still-image decoding: same ladder, with ZXing's `TRY_HARDER` and a global-histogram pass for 1D codes
+- Rendering: Canvas for the preview, hand-built SVG for downloads
+- Storage: `localStorage` only
+
+ZXing is injected lazily the first time it is needed, so a normal QR scan never pays for the 350KB download.
 
 ---
 
@@ -91,17 +118,27 @@ cd qr-generator
 open index.html
 ```
 
-No install step. No `npm install`. Just open the file.
+No install step. No `npm install`.
+
+One caveat, and it is the browser's rule rather than the app's: **cameras are blocked on `file://`.** Opening `index.html` straight from disk gives you a fully working generator, upload/paste scanning, and history — but not the live camera. For that, serve the folder over `http://localhost`:
+
+```bash
+python -m http.server 8000
+# then open http://localhost:8000
+```
+
+The app tells you this in place when it detects `file://`, instead of failing silently.
 
 ---
 
 ## Why I built this
 
-Every QR generator I found either required an account, called a third-party API with your content, or was buried under ads. For a Wi-Fi QR code — which contains your actual network password — that felt wrong. So I built one that doesn't phone home at all.
+Every QR generator I found either required an account, called a third-party API with your content, or was buried under ads. For a Wi-Fi QR code — which contains your actual network password — that felt wrong. And almost none of them could read a code back. So I built one that does both and doesn't phone home at all.
 
 ---
 
 ## License
 
 MIT — do whatever you want with it.
-The vendored QR engine is also MIT © Kazuhiko Arase.
+
+The vendored QR engine is MIT © Kazuhiko Arase. jsQR and ZXing are Apache-2.0; their license headers are preserved in the vendored files.
