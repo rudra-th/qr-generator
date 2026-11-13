@@ -1,0 +1,7 @@
+# Surge writes this on every deploy; the domain mapping lives server-side.
+CNAME
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
