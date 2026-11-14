@@ -110,6 +110,7 @@ js/store.js          settings and history in localStorage
 js/app.js            views, create flow, scan flow, history
 jsqr.js              vendored jsQR (Apache-2.0)
 zxing.min.js         vendored ZXing UMD (Apache-2.0), loaded on demand
+tests/qr.test.js     Node tests for payload building and parsing
 ```
 
 - QR encoding: [qrcode.js](https://github.com/davidshimjs/qrcodejs) by Kazuhiko Arase (MIT), vendored
@@ -147,6 +148,18 @@ python -m http.server 8000
 ```
 
 The app tells you this in place when it detects `file://`, instead of failing silently.
+
+---
+
+## Tests
+
+The encoder and the payload parser are pure functions, so they are tested in Node with no dependencies and no install step:
+
+```bash
+node --test
+```
+
+Seventeen tests cover every payload type building and parsing back, the escaping that keeps a `;` inside a Wi-Fi password or a `,` inside a contact name from breaking the payload, domain detection, and the colour maths behind the contrast warning.
 
 ---
 

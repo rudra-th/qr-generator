@@ -1,0 +1,4 @@
+# Keep one line-ending convention in the repository, whatever the machine.
+# Git stores LF; checkouts stay LF too, so a Windows clone does not report
+# every file as modified.
+* text=auto eol=lf
