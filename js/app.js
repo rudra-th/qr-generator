@@ -1475,6 +1475,60 @@
     if (!ok) document.documentElement.classList.add('no-focus-visible');
   }
 
+  /* ---------- service worker ---------- */
+  var updateOffered = false;
+
+  function offerUpdate(reg) {
+    if (updateOffered) return;
+    updateOffered = true;
+
+    toast('A new version is ready.', false, {
+      label: 'Reload',
+      run: function () {
+        var reloading = false;
+
+        function go() {
+          if (reloading) return;
+          reloading = true;
+          window.location.reload();
+        }
+
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.addEventListener('controllerchange', go);
+        }
+        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        /* Some browsers fire no controllerchange on a first swap. */
+        setTimeout(go, 1200);
+      }
+    });
+  }
+
+  function registerWorker() {
+    /* Never on file://: service workers are https/http only, and the open-from-
+       disk promise must keep working without one. */
+    if (!('serviceWorker' in navigator) || window.location.protocol === 'file:') return;
+
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        /* A worker may already be waiting from an earlier visit. */
+        if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg);
+
+        reg.addEventListener('updatefound', function () {
+          var worker = reg.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', function () {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              offerUpdate(reg);
+            }
+          });
+        });
+      }).catch(function () {
+        /* Blocked, private mode, or too old. The app still works; it just will
+           not survive a reload with the network off. */
+      });
+    });
+  }
+
   function init() {
     detectFocusSupport();
     applySettings();
@@ -1489,6 +1543,7 @@
     renderForm(false);
     renderCreate();
     renderRecent();
+    registerWorker();
 
     el.eccHint.textContent = ECC_HINTS.M;
     el.sizeHint.textContent = SIZE_HINTS[512];

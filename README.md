@@ -31,7 +31,7 @@ Whatever you scan or create lands in **Recent**, on this device only, so you can
 ## Features
 
 **Offline-first by design**
-One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs - the encoder, both decoders - is checked in next to `index.html`. Once the page has loaded it never touches the network on its own, and it will keep working with the Wi-Fi off. The only outbound traffic is a link you press yourself.
+One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs - the encoder, both decoders - is checked in next to `index.html`. A service worker keeps a copy of the whole app, so it opens with the Wi-Fi off - even after a reload, even after a restart. Once the page has loaded it never touches the network on its own, and the only outbound traffic is a link you press yourself.
 
 **Scanning that works on real phones**
 The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does not hijack it into fullscreen. Decoding runs through whatever the device does best: the native `BarcodeDetector` where it exists, [jsQR](https://github.com/cozmo/jsQR) everywhere else (that is the iPhone path), and [ZXing](https://github.com/zxing-js/library) as the escalation for 1D codes and difficult frames. The live loop measures how long each decode takes and backs off the resolution on slow hardware rather than dropping frames forever.
@@ -43,7 +43,7 @@ No camera permission? Use a photo you already have. You can also paste a screens
 A scanned link offers *Open link* and *Copy link*. A bare domain like `example.com/path` is recognised too, and any other text offers *Copy text* plus *Search the web* — the engine (DuckDuckGo, Google or Bing) is chosen in Settings. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
 
 **Links leave the app**
-Every action that goes somewhere else is a real link, not a scripted popup. Your phone hands it to the real browser — Chrome on Android, Safari on iPhone — and long-pressing offers *Open in new tab* and *Copy link*. Because there is no web-app manifest, the app is never installed as its own container, which is what would otherwise trap links inside it.
+Every action that goes somewhere else is a real link, not a scripted popup. Your phone hands it to the real browser — Chrome on Android, Safari on iPhone — and long-pressing offers *Open in new tab* and *Copy link*. The manifest deliberately declares `display: minimal-ui` rather than `standalone`, and there is no `apple-mobile-web-app-capable` tag: a fullscreen container is exactly what traps links inside the app.
 
 **Custom colours**
 Any foreground and background. There is a live contrast warning if your pair is likely to fail on a scanner, and a separate warning if you inverted them — a light code on a dark background often will not scan even with technically good contrast.
@@ -93,14 +93,17 @@ The model is simple: **nothing leaves your device unless you ask it to.**
 No build step, no `node_modules`, no bundler. Plain HTML, CSS, and ES5-flavoured JavaScript that runs as-is.
 
 ```
-index.html        app shell, three views, result panel, settings
-style.css         the whole design system (light + dark)
-js/qr.js          encoder + payload building/parsing + SVG export
-js/scanner.js     camera lifecycle and the decode pipeline
-js/store.js       settings and history in localStorage
-js/app.js         views, create flow, scan flow, history
-jsqr.js           vendored jsQR (Apache-2.0)
-zxing.min.js      vendored ZXing UMD (Apache-2.0), loaded on demand
+index.html           app shell, three views, result panel, settings
+style.css            the whole design system (light + dark)
+sw.js                service worker: offline shell, versioned cache
+manifest.webmanifest install metadata, display: minimal-ui
+icons/               home-screen and maskable icons
+js/qr.js             encoder + payload building/parsing + SVG export
+js/scanner.js        camera lifecycle and the decode pipeline
+js/store.js          settings and history in localStorage
+js/app.js            views, create flow, scan flow, history
+jsqr.js              vendored jsQR (Apache-2.0)
+zxing.min.js         vendored ZXing UMD (Apache-2.0), loaded on demand
 ```
 
 - QR encoding: [qrcode.js](https://github.com/davidshimjs/qrcodejs) by Kazuhiko Arase (MIT), vendored
@@ -110,6 +113,12 @@ zxing.min.js      vendored ZXing UMD (Apache-2.0), loaded on demand
 - Storage: `localStorage` only
 
 ZXing is injected lazily the first time it is needed, so a normal QR scan never pays for the 350KB download.
+
+### Updating a deploy
+
+`sw.js` caches the whole app under `qr-offline-<version>`. **Bump `CACHE_VERSION` in `sw.js` whenever you change any file listed in `PRECACHE`** — otherwise returning visitors keep the old copy.
+
+A new worker installs quietly and waits. The open page shows *A new version is ready — Reload* instead of swapping code under a running scan; the old cache is deleted on activate, so storage never holds two copies. The worker is only registered over `http(s)`, never `file://`, which is why opening the folder from disk still works exactly as before.
 
 ---
 
