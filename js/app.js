@@ -50,6 +50,7 @@
     dlSvg: $('dlSvg'),
     copyBtn: $('copyBtn'),
     shareBtn: $('shareBtn'),
+    verifyBtn: $('verifyBtn'),
     actionStatus: $('actionStatus'),
     typeChips: $('typeChips'),
     formArea: $('formArea'),
@@ -99,6 +100,8 @@
     scan: '<path d="M4 9V6a2 2 0 0 1 2-2h3"/><path d="M15 4h3a2 2 0 0 1 2 2v3"/><path d="M20 15v3a2 2 0 0 1-2 2h-3"/><path d="M9 20H6a2 2 0 0 1-2-2v-3"/>',
     save: '<path d="M12 4v9"/><path d="M8.5 9.5 12 13l3.5-3.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/>',
     search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+    share: '<circle cx="17.5" cy="5.5" r="2.6"/><circle cx="6.5" cy="12" r="2.6"/><circle cx="17.5" cy="18.5" r="2.6"/><path d="M9 10.8l6-3.6M9 13.2l6 3.6"/>',
+    edit: '<path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
 
@@ -382,7 +385,160 @@
       });
     }
 
+    /* The same two on every kind: take the payload into Create, and hand the
+       text to the OS share sheet where the browser has one. */
+    if (parsed.text) {
+      actions.push({
+        label: 'Edit in Create', icon: 'edit',
+        run: function () { createFromResult(parsed); }
+      });
+
+      if (navigator.share) {
+        actions.push({
+          label: 'Share', icon: 'share',
+          run: function () { shareResult(parsed); }
+        });
+      }
+    }
+
     return actions;
+  }
+
+  function shareResult(parsed) {
+    if (!navigator.share) return;
+    navigator.share({
+      title: parsed.title || 'QR code',
+      text: parsed.text
+    }).catch(function (err) {
+      /* Dismissing the sheet is not a failure worth reporting. */
+      if (err && err.name === 'AbortError') return;
+      toast('Could not open the share sheet.', true);
+    });
+  }
+
+  /* ---------- turning a scan back into a Create draft ---------- */
+
+  /* The Wi-Fi form only offers three security values; a scan can carry any
+     string (WPA2, WPA2-EAP, …), so map it onto the closest one. */
+  function wifiSec(raw) {
+    var v = String(raw || '').trim();
+    if (/^nopass$/i.test(v)) return 'nopass';
+    if (/^wep$/i.test(v)) return 'WEP';
+    return 'WPA';
+  }
+
+  function queryParam(query, name) {
+    var out = '';
+    query.split('&').forEach(function (pair) {
+      var i = pair.indexOf('=');
+      if (i < 0) return;
+      if (pair.slice(0, i).toLowerCase() !== name) return;
+      try {
+        out = decodeURIComponent(pair.slice(i + 1).replace(/\+/g, ' '));
+      } catch (e) {
+        out = pair.slice(i + 1);
+      }
+    });
+    return out;
+  }
+
+  function emailFields(parsed) {
+    var rest = String(parsed.href || parsed.text || '').replace(/^mailto:/i, '');
+    var q = rest.indexOf('?');
+    var to = q < 0 ? rest : rest.slice(0, q);
+    var query = q < 0 ? '' : rest.slice(q + 1);
+
+    try { to = decodeURIComponent(to); } catch (e) {}
+
+    return {
+      to: to,
+      sub: queryParam(query, 'subject'),
+      body: queryParam(query, 'body')
+    };
+  }
+
+  function smsFields(parsed) {
+    var raw = String(parsed.href || parsed.text || '');
+
+    if (/^SMSTO:/i.test(raw)) {
+      var rest = raw.replace(/^SMSTO:/i, '');
+      var i = rest.indexOf(':');
+      return i < 0
+        ? { tel: rest, msg: '' }
+        : { tel: rest.slice(0, i), msg: rest.slice(i + 1) };
+    }
+
+    var tail = raw.replace(/^sms:/i, '');
+    var q = tail.indexOf('?');
+    return {
+      tel: q < 0 ? tail : tail.slice(0, q),
+      msg: q < 0 ? '' : queryParam(tail.slice(q + 1), 'body')
+    };
+  }
+
+  function draftFromParsed(parsed) {
+    var f = parsed.fields || {};
+
+    switch (parsed.kind) {
+      case 'wifi':
+        return {
+          type: 'wifi',
+          fields: {
+            ssid: f.ssid || '',
+            pass: f.pass || '',
+            sec: wifiSec(f.sec),
+            hidden: !!f.hidden
+          }
+        };
+      case 'contact':
+        return {
+          type: 'contact',
+          fields: {
+            name: f.name || '', phone: f.phone || '',
+            email: f.email || '', org: f.org || ''
+          }
+        };
+      case 'email':
+        return { type: 'email', fields: emailFields(parsed) };
+      case 'phone':
+        return { type: 'phone', fields: { tel: parsed.title || '' } };
+      case 'sms':
+        return { type: 'sms', fields: smsFields(parsed) };
+      case 'geo':
+        return {
+          type: 'geo',
+          fields: { lat: f.lat || '', lng: f.lng || '', label: f.label || '' }
+        };
+      default:
+        return { type: 'text', fields: { text: parsed.text || '' } };
+    }
+  }
+
+  function selectType(type) {
+    create.type = type;
+    Array.prototype.forEach.call(el.typeChips.children, function (c) {
+      c.setAttribute('aria-selected', c.getAttribute('data-type') === type ? 'true' : 'false');
+    });
+    renderForm(false);
+  }
+
+  function createFromResult(parsed) {
+    var draft = draftFromParsed(parsed);
+
+    /* Keep whatever was half-typed in the current tab, like a chip switch. */
+    drafts[create.type] = readFields();
+
+    closePanel();
+    selectType(draft.type);
+    writeFields(draft.fields);
+
+    /* writeFields deliberately blanks the Wi-Fi password (it is kept out of
+       history); here the password is the whole point of the code. */
+    if (draft.type === 'wifi') setVal('f_pass', draft.fields.pass || '');
+
+    renderCreate();
+    go('create', true);
+    setStatus('Loaded from your scan \u2014 change anything, then download.');
   }
 
   function renderActions(parsed) {
@@ -762,6 +918,8 @@
   var lastText = '';
   var lastFields = null;
   var renderTimer = null;
+  var verifyBusy = false;
+  var verifiedSig = '';
 
   var ECC_HINTS = {
     L: 'Smallest code. Fine when it only ever appears on a screen.',
@@ -957,6 +1115,12 @@
     lastFields = fields;
     lastText = text;
 
+    /* Any change to the payload or the design invalidates an earlier check. */
+    if (verifiedSig && verifiedSig !== createSig()) {
+      verifiedSig = '';
+      if (el.actionStatus.textContent.indexOf('Verified') === 0) setStatus('');
+    }
+
     el.encodeError.hidden = true;
     el.contrastWarn.hidden = true;
 
@@ -1004,6 +1168,59 @@
       el.contrastWarn.querySelector('span').textContent = warning;
       el.contrastWarn.hidden = false;
     }
+  }
+
+  /* What a verification actually vouches for: content plus the design that
+     was on screen when it ran. */
+  function createSig() {
+    return [lastText, create.ecc, create.size, create.fg, create.bg, create.logoName].join('|');
+  }
+
+  function verifyCreate() {
+    if (!lastText || verifyBusy) return;
+
+    if (!window.Scanner || typeof Scanner.decodeCanvas !== 'function') {
+      setStatus('This browser cannot read a code back by itself.', true);
+      return;
+    }
+
+    verifyBusy = true;
+    el.verifyBtn.disabled = true;
+    setStatus('Checking this code\u2026');
+
+    var expected = lastText;
+    var sig = createSig();
+
+    function finish() {
+      verifyBusy = false;
+      el.verifyBtn.disabled = false;
+    }
+
+    function report(hit) {
+      finish();
+
+      /* The form changed while the decoder was busy, so the verdict is stale. */
+      if (lastText !== expected) {
+        setStatus('');
+        return;
+      }
+
+      if (!hit || !hit.text) {
+        verifiedSig = '';
+        setStatus('Could not read it back. Raise the damage resistance, add contrast, or shrink the logo.', true);
+      } else if (hit.text === expected) {
+        verifiedSig = sig;
+        setStatus('Verified \u2014 this exact code decodes cleanly.');
+      } else {
+        verifiedSig = '';
+        setStatus('The code reads back different content. Try a larger size or a simpler design.', true);
+      }
+    }
+
+    Scanner.decodeCanvas(el.canvas).then(report, function () {
+      finish();
+      setStatus('Could not check this code in this browser.', true);
+    });
   }
 
   function setupCreateControls() {
@@ -1130,6 +1347,8 @@
         }
       });
     });
+
+    el.verifyBtn.addEventListener('click', verifyCreate);
 
     if (!navigator.share) el.shareBtn.hidden = true;
   }

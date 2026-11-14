@@ -562,6 +562,16 @@ main {
 .dl .btn-primary { height: 48px; }
 .dl [hidden] { display: none; }
 
+/* Verify and Share share one row; when Share is unsupported the visible
+   button takes the whole width on its own. */
+.dl-more {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
 .status {
   font-size: 12.5px;
   color: var(--ink-3);

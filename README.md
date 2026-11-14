@@ -42,6 +42,12 @@ No camera permission? Use a photo you already have. You can also paste a screens
 **Actions that match the code**
 A scanned link offers *Open link* and *Copy link*. A bare domain like `example.com/path` is recognised too, and any other text offers *Copy text* plus *Search the web* — the engine (DuckDuckGo, Google or Bing) is chosen in Settings. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
 
+**Edit what you scanned**
+Every result also offers *Edit in Create*: the scanned payload is parsed back into the matching form, so a Wi-Fi code arrives with its network name, password and hidden flag filled in, a contact with its fields, and a link in the text box. Change one character, switch the colours, and download your own version. A live scan keeps the Wi-Fi password in memory for this; a history entry does not have it, because passwords are never written to disk.
+
+**Verify before you print**
+*Verify code* decodes the preview you are looking at with the same pipeline the scanner uses, and tells you whether it reads back exactly what you typed. It catches the failures that are invisible on screen: a colour pair that is too pale, a logo that ate the timing pattern, a code that got too dense. Any change to the content or the design clears the verdict, so it can never vouch for something you have since edited.
+
 **Links leave the app**
 Every action that goes somewhere else is a real link, not a scripted popup. Your phone hands it to the real browser — Chrome on Android, Safari on iPhone — and long-pressing offers *Open in new tab* and *Copy link*. The manifest deliberately declares `display: minimal-ui` rather than `standalone`, and there is no `apple-mobile-web-app-capable` tag: a fullscreen container is exactly what traps links inside the app.
 
@@ -64,7 +70,7 @@ Use the file picker. Error correction jumps to Level H automatically and the log
 PNG for sharing anywhere. SVG for scaling without quality loss in a design tool.
 
 **Copy & Share**
-Copy the image to your clipboard (HTTPS or localhost), or hand it to the OS share sheet on mobile.
+Copy the image to your clipboard (HTTPS or localhost), or hand it to the OS share sheet on mobile. A scan result can be shared as text too, so a link or contact card goes straight into a message.
 
 **Print-ready**
 `Ctrl+P` / `Cmd+P` hides every control and prints just the code.
