@@ -75,6 +75,7 @@
     settingsClose: $('settingsClose'),
     themeSeg: $('themeSeg'),
     motionSeg: $('motionSeg'),
+    engineSeg: $('engineSeg'),
     histCount: $('histCount'),
     clearHistBtn: $('clearHistBtn'),
     settingsScrim: $('settingsScrim')
@@ -96,7 +97,9 @@
     copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5h-9a2 2 0 0 0-2 2v9"/>',
     external: '<path d="M14 4h6v6"/><path d="M20 4l-8.5 8.5"/><path d="M18 14v4.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2H10"/>',
     scan: '<path d="M4 9V6a2 2 0 0 1 2-2h3"/><path d="M15 4h3a2 2 0 0 1 2 2v3"/><path d="M20 15v3a2 2 0 0 1-2 2h-3"/><path d="M9 20H6a2 2 0 0 1-2-2v-3"/>',
-    save: '<path d="M12 4v9"/><path d="M8.5 9.5 12 13l3.5-3.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/>'
+    save: '<path d="M12 4v9"/><path d="M8.5 9.5 12 13l3.5-3.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
 
   function svg(name) {
@@ -115,14 +118,35 @@
 
   /* ---------- toast / announce ---------- */
   var toastTimer = null;
-  function toast(message, isError) {
-    el.toast.textContent = message;
+
+  function hideToast() {
+    el.toast.setAttribute('data-show', 'false');
+  }
+
+  function toast(message, isError, action) {
+    el.toast.innerHTML = '';
+
+    var text = document.createElement('span');
+    text.textContent = message;
+    el.toast.appendChild(text);
+
+    if (action) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'toast-action';
+      button.textContent = action.label;
+      button.addEventListener('click', function () {
+        hideToast();
+        action.run();
+      });
+      el.toast.appendChild(button);
+    }
+
     el.toast.classList.toggle('is-error', !!isError);
     el.toast.setAttribute('data-show', 'true');
+
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () {
-      el.toast.setAttribute('data-show', 'false');
-    }, 3200);
+    toastTimer = setTimeout(hideToast, action ? 6000 : 3200);
   }
 
   function announce(message) {
@@ -145,6 +169,11 @@
     Array.prototype.forEach.call(el.motionSeg.querySelectorAll('button'), function (b) {
       b.setAttribute('aria-checked', b.getAttribute('data-motion') === s.motion ? 'true' : 'false');
     });
+    if (el.engineSeg) {
+      Array.prototype.forEach.call(el.engineSeg.querySelectorAll('button'), function (b) {
+        b.setAttribute('aria-checked', b.getAttribute('data-engine') === s.engine ? 'true' : 'false');
+      });
+    }
   }
 
   var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -288,15 +317,27 @@
   }
 
   /* ---------- result panel ---------- */
+  var ENGINES = {
+    ddg: 'https://duckduckgo.com/?q=',
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://www.bing.com/search?q='
+  };
+
+  function searchUrl(text) {
+    var base = ENGINES[Store.get().engine] || ENGINES.ddg;
+    return base + encodeURIComponent(String(text).slice(0, 1500));
+  }
+
+  /* Actions are either a link (an anchor, so the OS hands it to the real
+     browser and long-press offers "open in new tab") or something the app
+     does itself (copy, save). */
   function buildActions(parsed) {
     var actions = [];
     var f = parsed.fields || {};
 
     if (parsed.kind === 'url' && parsed.href) {
-      actions.push({
-        label: 'Open link', icon: 'external', primary: true,
-        run: function () { window.open(parsed.href, '_blank', 'noopener'); }
-      });
+      actions.push({ label: 'Open link', icon: 'external', primary: true, href: parsed.href, external: true });
+      actions.push({ label: 'Copy link', icon: 'copy', run: function () { copyText(parsed.href, 'Link copied.'); } });
     } else if (parsed.kind === 'wifi') {
       if (f.pass) {
         actions.push({
@@ -315,39 +356,59 @@
         run: function () { saveContact(parsed); }
       });
       if (f.phone) {
-        actions.push({
-          label: 'Call ' + f.phone, icon: 'phone',
-          run: function () { window.location.href = 'tel:' + f.phone; }
-        });
+        actions.push({ label: 'Call ' + f.phone, icon: 'phone', href: 'tel:' + f.phone });
       }
     } else if (parsed.kind === 'email' && parsed.href) {
-      actions.push({
-        label: 'Send email', icon: 'mail', primary: true,
-        run: function () { window.location.href = parsed.href; }
-      });
+      actions.push({ label: 'Send email', icon: 'mail', primary: true, href: parsed.href });
     } else if (parsed.kind === 'phone' && parsed.href) {
-      actions.push({
-        label: 'Call', icon: 'phone', primary: true,
-        run: function () { window.location.href = parsed.href; }
-      });
+      actions.push({ label: 'Call', icon: 'phone', primary: true, href: parsed.href });
     } else if (parsed.kind === 'sms' && parsed.href) {
-      actions.push({
-        label: 'Send message', icon: 'sms', primary: true,
-        run: function () { window.location.href = parsed.href; }
-      });
+      actions.push({ label: 'Send message', icon: 'sms', primary: true, href: parsed.href });
     } else if (parsed.kind === 'geo' && parsed.href) {
-      actions.push({
-        label: 'Open in maps', icon: 'geo', primary: true,
-        run: function () { window.open(parsed.href, '_blank', 'noopener'); }
-      });
+      actions.push({ label: 'Open in maps', icon: 'geo', primary: true, href: parsed.href, external: true });
     } else {
+      var asLink = QR.looksLikeDomain(parsed.text);
+
+      if (asLink) {
+        actions.push({ label: 'Open as link', icon: 'external', primary: true, href: asLink, external: true });
+        actions.push({ label: 'Copy text', icon: 'copy', run: function () { copyText(parsed.text, 'Copied.'); } });
+      } else {
+        actions.push({ label: 'Copy text', icon: 'copy', primary: true, run: function () { copyText(parsed.text, 'Copied.'); } });
+      }
+
       actions.push({
-        label: 'Copy text', icon: 'copy', primary: true,
-        run: function () { copyText(parsed.text, 'Copied.'); }
+        label: 'Search the web', icon: 'search',
+        href: searchUrl(parsed.text), external: true
       });
     }
 
     return actions;
+  }
+
+  function renderActions(parsed) {
+    el.resultActions.innerHTML = '';
+
+    buildActions(parsed).forEach(function (action) {
+      var node;
+
+      if (action.href) {
+        node = document.createElement('a');
+        node.href = action.href;
+        if (action.external) {
+          node.target = '_blank';
+          node.rel = 'noopener noreferrer';
+        }
+      } else {
+        node = document.createElement('button');
+        node.type = 'button';
+        node.addEventListener('click', action.run);
+      }
+
+      node.className = action.primary ? 'btn btn-primary' : 'btn btn-quiet';
+      node.innerHTML = svg(action.icon) + '<span></span>';
+      node.querySelector('span').textContent = action.label;
+      el.resultActions.appendChild(node);
+    });
   }
 
   function showResult(text, save) {
@@ -364,16 +425,7 @@
     el.resultBody.textContent = parsed.body;
 
     el.resultActions.innerHTML = '';
-    buildActions(parsed).forEach(function (action) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = action.primary ? 'btn btn-primary' : 'btn btn-quiet';
-      b.innerHTML = svg(action.icon) + '<span></span>';
-      b.querySelector('span').textContent = action.label;
-      b.addEventListener('click', action.run);
-      el.resultActions.appendChild(b);
-    });
-
+    renderActions(parsed);
     el.resultCopy.textContent = parsed.kind === 'wifi' ? 'Copy raw code' : 'Copy text';
 
     openPanel();
@@ -389,25 +441,107 @@
       });
     }
   }
+  /* ---------- scroll lock, shared by the result sheet and settings ---------- */
+  var scrollLocks = 0;
+
+  function lockScroll(on) {
+    scrollLocks += on ? 1 : -1;
+    if (scrollLocks < 0) scrollLocks = 0;
+    document.documentElement.classList.toggle('is-locked', scrollLocks > 0);
+  }
+
+  function sheetMode() {
+    return window.matchMedia('(max-width: 859px)').matches;
+  }
+
+  var lastPanelFocus = null;
+  var panelLocked = false;
+
   function openPanel() {
+    lastPanelFocus = document.activeElement;
+
     el.result.setAttribute('data-open', 'true');
+
+    /* Below 860px this is a modal sheet; above it, a panel beside the camera. */
+    if (sheetMode()) {
+      el.result.setAttribute('role', 'dialog');
+      el.result.setAttribute('aria-modal', 'true');
+      if (!panelLocked) { lockScroll(true); panelLocked = true; }
+    } else {
+      el.result.setAttribute('role', 'region');
+      el.result.removeAttribute('aria-modal');
+    }
+
     el.scrim.hidden = false;
     requestAnimationFrame(function () {
       el.scrim.setAttribute('data-show', 'true');
     });
+
     if (Scanner.active()) Scanner.pause();
+
+    try {
+      el.resultTitle.focus({ preventScroll: true });
+    } catch (e) {
+      el.resultTitle.focus();
+    }
   }
 
   function closePanel() {
     el.result.setAttribute('data-open', 'false');
+    el.result.removeAttribute('aria-modal');
+    el.result.setAttribute('role', 'region');
     el.scrim.setAttribute('data-show', 'false');
+
+    if (panelLocked) { lockScroll(false); panelLocked = false; }
+
     setTimeout(function () {
       if (el.result.getAttribute('data-open') === 'false') el.scrim.hidden = true;
     }, 220);
+
     currentResult = null;
+
+    if (lastPanelFocus && document.contains(lastPanelFocus) && lastPanelFocus.focus) {
+      try { lastPanelFocus.focus({ preventScroll: true }); } catch (e) {}
+    }
+
     if (scanState === 'live') {
       Scanner.resume();
       setViewport('live', 'Looking for a code\u2026');
+    }
+  }
+
+  /* Keep Tab inside the sheet while it is modal. */
+  function panelFocusables() {
+    var nodes = el.result.querySelectorAll(
+      'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+
+    /* Hidden controls (the close button is hidden on desktop) cannot take
+       focus, and a trap built around one would leak. */
+    return Array.prototype.filter.call(nodes, function (node) {
+      return node.getClientRects().length > 0;
+    });
+  }
+
+  function trapPanelFocus(e) {
+    if (e.key !== 'Tab' || el.result.getAttribute('aria-modal') !== 'true') return;
+    if (el.result.getAttribute('data-open') !== 'true') return;
+
+    var focusable = panelFocusables();
+    if (!focusable.length) {
+      e.preventDefault();
+      return;
+    }
+
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
     }
   }
 
@@ -579,6 +713,7 @@
     el.resultClose.addEventListener('click', closePanel);
     el.resultAgain.addEventListener('click', closePanel);
     el.scrim.addEventListener('click', closePanel);
+    el.result.addEventListener('keydown', trapPanelFocus);
 
     el.resultCopy.addEventListener('click', function () {
       if (!currentResult) return;
@@ -854,7 +989,7 @@
     el.actions.hidden = false;
 
     var warning = '';
-    if (QR.contrast(create.fg, create.bg) < 2.5) {
+    if (QR.contrast(create.fg, create.bg) < 3) {
       warning = 'Low contrast — this may not scan. Use a darker code colour or a lighter background.';
     } else if (QR.isInverted(create.fg, create.bg)) {
       warning = 'Inverted colours — a light code on a dark background often fails to scan, even with good contrast.';
@@ -1113,9 +1248,12 @@
         el.recentList.appendChild(group);
       }
 
-      var row = document.createElement('button');
-      row.type = 'button';
+      var row = document.createElement('div');
       row.className = 'recent-item';
+
+      var open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'recent-open';
 
       var icon = document.createElement('span');
       icon.className = 'recent-icon';
@@ -1132,9 +1270,23 @@
       body.appendChild(label);
       body.appendChild(meta);
 
-      row.appendChild(icon);
-      row.appendChild(body);
-      row.addEventListener('click', function () { openHistoryItem(item); });
+      open.appendChild(icon);
+      open.appendChild(body);
+      open.addEventListener('click', function () { openHistoryItem(item); });
+
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'recent-del';
+      remove.setAttribute('aria-label', 'Remove ' + (item.label || 'entry') + ' from history');
+      remove.innerHTML = svg('close');
+      remove.addEventListener('click', function () {
+        Store.history.remove(item.id);
+        renderRecent();
+        toast('Removed from history.');
+      });
+
+      row.appendChild(open);
+      row.appendChild(remove);
       group.appendChild(row);
     });
   }
@@ -1147,7 +1299,8 @@
         return;
       }
       if (item.type === 'wifi' && item.fields) {
-        showResult('WIFI:T:' + (item.fields.sec || 'WPA') + ';S:' + item.fields.ssid + ';;', false);
+        /* Rebuild through the encoder so an SSID containing ; or , survives. */
+        showResult(QR.build('wifi', item.fields), false);
         el.resultSub.textContent = (item.fields.sec || 'WPA') + ' \u00b7 password was not saved';
         el.resultSub.hidden = false;
         return;
@@ -1189,6 +1342,7 @@
     updateHistoryCount();
     el.settingsSheet.setAttribute('data-open', 'true');
     el.settingsScrim.hidden = false;
+    lockScroll(true);
     requestAnimationFrame(function () {
       el.settingsScrim.setAttribute('data-show', 'true');
     });
@@ -1198,6 +1352,7 @@
   function closeSettings() {
     el.settingsSheet.setAttribute('data-open', 'false');
     el.settingsScrim.setAttribute('data-show', 'false');
+    lockScroll(false);
     setTimeout(function () { el.settingsScrim.hidden = true; }, 220);
     if (lastFocused && lastFocused.focus) lastFocused.focus();
   }
@@ -1221,6 +1376,15 @@
       applySettings();
     });
 
+    el.engineSeg.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-engine]');
+      if (!b) return;
+      Store.set('engine', b.getAttribute('data-engine'));
+      applySettings();
+      /* The search action is built from the engine, so rebuild it in place. */
+      if (currentResult) renderActions(currentResult);
+    });
+
     var armed = false;
     var armTimer = null;
 
@@ -1238,10 +1402,20 @@
       clearTimeout(armTimer);
       armed = false;
       el.clearHistBtn.textContent = 'Clear';
-      Store.history.clear();
+
+      var backup = Store.history.clear();
       updateHistoryCount();
       renderRecent();
-      toast('History cleared.');
+
+      toast('History cleared.', false, backup.length ? {
+        label: 'Undo',
+        run: function () {
+          Store.history.restore(backup);
+          updateHistoryCount();
+          renderRecent();
+          toast('History restored.');
+        }
+      } : null);
     });
 
     el.settingsSheet.addEventListener('keydown', function (e) {
@@ -1325,6 +1499,15 @@
     }
 
     go('scan');
+
+    /* Another tab edited history or settings: refresh what is on screen. */
+    if (Store.onExternalChange) {
+      Store.onExternalChange(function () {
+        applySettings();
+        renderRecent();
+        updateHistoryCount();
+      });
+    }
   }
 
   if (document.readyState === 'loading') {

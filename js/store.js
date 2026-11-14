@@ -9,6 +9,8 @@
   var LEGACY_THEME_KEY = 'qr_theme_v1';
   var MAX_ENTRIES = 200;
 
+  var ENGINES = ['ddg', 'google', 'bing'];
+
   function readJSON(key, fallback) {
     try {
       var raw = global.localStorage.getItem(key);
@@ -28,28 +30,40 @@
   }
 
   /* ---------- settings ---------- */
-  var settings = readJSON(SETTINGS_KEY, {}) || {};
+  function normalize(raw) {
+    var s = raw || {};
 
-  if (settings.theme !== 'light' && settings.theme !== 'dark' && settings.theme !== 'system') {
-    var legacy = null;
-    try { legacy = global.localStorage.getItem(LEGACY_THEME_KEY); } catch (e) {}
-    settings.theme = (legacy === 'light' || legacy === 'dark') ? legacy : 'system';
+    if (s.theme !== 'light' && s.theme !== 'dark' && s.theme !== 'system') {
+      var legacy = null;
+      try { legacy = global.localStorage.getItem(LEGACY_THEME_KEY); } catch (e) {}
+      s.theme = (legacy === 'light' || legacy === 'dark') ? legacy : 'system';
+    }
+    if (s.motion !== 'system' && s.motion !== 'reduced') s.motion = 'system';
+    if (ENGINES.indexOf(s.engine) === -1) s.engine = 'ddg';
+
+    return s;
   }
-  if (settings.motion !== 'system' && settings.motion !== 'reduced') settings.motion = 'system';
+
+  var settings = normalize(readJSON(SETTINGS_KEY, {}));
 
   var listeners = [];
+  var externalListeners = [];
+
+  function fire(list) {
+    list.forEach(function (fn) {
+      try { fn(settings); } catch (e) {}
+    });
+  }
 
   var Store = {
     get: function () {
-      return { theme: settings.theme, motion: settings.motion };
+      return { theme: settings.theme, motion: settings.motion, engine: settings.engine };
     },
 
     set: function (key, value) {
       settings[key] = value;
       writeJSON(SETTINGS_KEY, settings);
-      listeners.forEach(function (fn) {
-        try { fn(settings); } catch (e) {}
-      });
+      fire(listeners);
     },
 
     resolvedTheme: function () {
@@ -60,6 +74,11 @@
 
     onChange: function (fn) {
       listeners.push(fn);
+    },
+
+    /* Another tab changed something. Reload from disk and tell the app. */
+    onExternalChange: function (fn) {
+      externalListeners.push(fn);
     }
   };
 
@@ -67,6 +86,13 @@
   function load() {
     var list = readJSON(HISTORY_KEY, []);
     return Array.isArray(list) ? list : [];
+  }
+
+  function sameEntry(item, entry) {
+    if (item.kind !== entry.kind || item.type !== entry.type) return false;
+    /* Two different links on the same host share a label, so match on the
+       payload itself. Wi-Fi entries have no text, and their label is unique. */
+    return (item.text || item.label) === (entry.text || entry.label);
   }
 
   Store.history = {
@@ -88,9 +114,7 @@
         }
       }
 
-      list = list.filter(function (item) {
-        return !(item.kind === entry.kind && item.type === entry.type && item.label === entry.label);
-      });
+      list = list.filter(function (item) { return !sameEntry(item, entry); });
 
       entry.id = 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       entry.ts = Date.now();
@@ -105,10 +129,33 @@
       writeJSON(HISTORY_KEY, load().filter(function (item) { return item.id !== id; }));
     },
 
+    /* Returns what was there, so the caller can offer an undo. */
     clear: function () {
+      var list = load();
       try { global.localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+      return list;
+    },
+
+    restore: function (list) {
+      if (!Array.isArray(list) || !list.length) return;
+      writeJSON(HISTORY_KEY, list.slice(0, MAX_ENTRIES));
     }
   };
+
+  /* ---------- cross-tab sync ---------- */
+  if (global.addEventListener) {
+    global.addEventListener('storage', function (e) {
+      if (!e || !e.key) return;
+
+      if (e.key === SETTINGS_KEY) {
+        settings = normalize(readJSON(SETTINGS_KEY, {}));
+        fire(listeners);
+        fire(externalListeners);
+      } else if (e.key === HISTORY_KEY) {
+        fire(externalListeners);
+      }
+    });
+  }
 
   global.Store = Store;
 })(window);

@@ -31,7 +31,7 @@ Whatever you scan or create lands in **Recent**, on this device only, so you can
 ## Features
 
 **Offline-first by design**
-One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs — the encoder, both decoders — is checked in next to `index.html`. Once the page has loaded it never touches the network again, and it will keep working with the Wi-Fi off.
+One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs - the encoder, both decoders - is checked in next to `index.html`. Once the page has loaded it never touches the network on its own, and it will keep working with the Wi-Fi off. The only outbound traffic is a link you press yourself.
 
 **Scanning that works on real phones**
 The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does not hijack it into fullscreen. Decoding runs through whatever the device does best: the native `BarcodeDetector` where it exists, [jsQR](https://github.com/cozmo/jsQR) everywhere else (that is the iPhone path), and [ZXing](https://github.com/zxing-js/library) as the escalation for 1D codes and difficult frames. The live loop measures how long each decode takes and backs off the resolution on slow hardware rather than dropping frames forever.
@@ -40,7 +40,10 @@ The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does
 No camera permission? Use a photo you already have. You can also paste a screenshot straight from the clipboard, or drag an image onto the scanner. Small screenshots are upscaled before decoding, because a 200px screenshot of a code is mostly noise at native size.
 
 **Actions that match the code**
-A scanned link offers *Open link*. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
+A scanned link offers *Open link* and *Copy link*. A bare domain like `example.com/path` is recognised too, and any other text offers *Copy text* plus *Search the web* — the engine (DuckDuckGo, Google or Bing) is chosen in Settings. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
+
+**Links leave the app**
+Every action that goes somewhere else is a real link, not a scripted popup. Your phone hands it to the real browser — Chrome on Android, Safari on iPhone — and long-pressing offers *Open in new tab* and *Copy link*. Because there is no web-app manifest, the app is never installed as its own container, which is what would otherwise trap links inside it.
 
 **Custom colours**
 Any foreground and background. There is a live contrast warning if your pair is likely to fail on a scanner, and a separate warning if you inverted them — a light code on a dark background often will not scan even with technically good contrast.
@@ -73,14 +76,15 @@ Follows your system preference by default. The QR preview is always pure white, 
 
 ## Privacy
 
-The model is simple: **nothing ever leaves your device.**
+The model is simple: **nothing leaves your device unless you ask it to.**
 
-- No network requests after the page loads
+- No background network requests after the page loads
 - The camera stream is drawn into a canvas in this tab and decoded there — it is never recorded, uploaded, or stored
 - Uploaded photos are decoded in the page and discarded
 - History lives in `localStorage` and is never sent anywhere
 - Wi-Fi passwords are never written to history — only the network name and security type are kept
 - No cookies, no analytics, no third-party scripts
+- *Search the web* and *Open link* are the only ways out, and each is a plain link you press yourself: the scanned text goes to the search engine you picked, or the link goes to your browser. Nothing else is transmitted.
 
 ---
 

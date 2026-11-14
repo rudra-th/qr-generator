@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f6f3ec" id="themeColor">
 <title>QR / Offline — scan and make QR codes on your device</title>
-<meta name="description" content="Scan and generate QR codes entirely on your device. No network, no accounts, no tracking. Close your Wi-Fi and it still works.">
+<meta name="description" content="Scan and generate QR codes entirely on your device. No accounts, no tracking, no CDN. Close your Wi-Fi and it still works.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2317150f'/%3E%3Cpath d='M7 11V8.5A1.5 1.5 0 0 1 8.5 7H11' stroke='%23ff5a1f' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M13 7h2.5A1.5 1.5 0 0 1 17 8.5V11' stroke='%23f6f3ec' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M17 13v2.5a1.5 1.5 0 0 1-1.5 1.5H13' stroke='%23f6f3ec' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M11 17H8.5A1.5 1.5 0 0 1 7 15.5V13' stroke='%23f6f3ec' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <script>
@@ -140,7 +140,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
           </div>
-          <h2 class="result-title" id="resultTitle"></h2>
+          <h2 class="result-title" id="resultTitle" tabindex="-1"></h2>
           <p class="result-sub" id="resultSub"></p>
           <pre class="result-body" id="resultBody"></pre>
           <div class="result-actions" id="resultActions"></div>
@@ -292,6 +292,16 @@
       </div>
     </fieldset>
 
+    <fieldset class="seg-field">
+      <legend>Search engine</legend>
+      <div class="seg" id="engineSeg" role="radiogroup" aria-label="Search engine">
+        <button type="button" role="radio" data-engine="ddg" aria-checked="true">DuckDuckGo</button>
+        <button type="button" role="radio" data-engine="google" aria-checked="false">Google</button>
+        <button type="button" role="radio" data-engine="bing" aria-checked="false">Bing</button>
+      </div>
+      <p class="setting-sub">Used by <b>Search the web</b>. Searching leaves this device and sends the text to the engine.</p>
+    </fieldset>
+
     <div class="setting-row">
       <div>
         <p class="setting-title">History</p>
@@ -302,7 +312,7 @@
 
     <div class="about">
       <p><b>QR / Offline</b> — scanning and generating happen in this tab. Nothing is uploaded.</p>
-      <p class="micro">Wi-Fi passwords are never written to history. No accounts, no analytics, no network requests once the page has loaded.</p>
+      <p class="micro">Wi-Fi passwords are never written to history. No accounts, no analytics, no third-party scripts. The only way out is a link you press: <b>Open link</b> or <b>Search the web</b>.</p>
       <p class="micro"><a href="https://github.com/rudra-th/qr-generator" target="_blank" rel="noopener noreferrer">Source on GitHub</a></p>
     </div>
   </div>

@@ -361,6 +361,11 @@
     opts = options || {};
     video = videoEl;
 
+    /* A previous slow session lowers these; a new one deserves a fresh try. */
+    targetSize = 640;
+    frameInterval = 80;
+    slowFrames = 0;
+
     if (!canvas) {
       canvas = document.createElement('canvas');
       ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -472,14 +477,32 @@
 
     if (source instanceof global.HTMLImageElement) return Promise.resolve(source);
 
-    var U = global.URL || global.webkitURL;
-    var url = U.createObjectURL(source);
-    return new Promise(function (resolve, reject) {
-      var img = new Image();
-      img.onload = function () { U.revokeObjectURL(url); resolve(img); };
-      img.onerror = function () { U.revokeObjectURL(url); reject(new Error('image-failed')); };
-      img.src = url;
-    });
+    function fromObjectUrl(blob) {
+      var U = global.URL || global.webkitURL;
+      var url = U.createObjectURL(blob);
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () { U.revokeObjectURL(url); resolve(img); };
+        img.onerror = function () { U.revokeObjectURL(url); reject(new Error('image-failed')); };
+        img.src = url;
+      });
+    }
+
+    /* createImageBitmap decodes off the main thread and honours EXIF
+       orientation, so a landscape phone photo is not sideways. Browsers that
+       reject the options bag fall back to an <img>, which also applies
+       orientation on modern Safari and Chrome. */
+    if (global.createImageBitmap) {
+      try {
+        return global.createImageBitmap(source, { imageOrientation: 'from-image' })
+          .catch(function () { return global.createImageBitmap(source); })
+          .catch(function () { return fromObjectUrl(source); });
+      } catch (e) {
+        /* Some browsers throw on the options bag instead of rejecting. */
+      }
+    }
+
+    return fromObjectUrl(source);
   }
 
   function decodeStill(c, cx) {
@@ -515,6 +538,10 @@
       var cx = c.getContext('2d', { willReadFrequently: true });
       cx.imageSmoothingQuality = 'high';
       cx.drawImage(img, 0, 0, c.width, c.height);
+
+      if (typeof img.close === 'function') {
+        try { img.close(); } catch (e) {}
+      }
 
       return decodeStill(c, cx);
     });

@@ -2611,6 +2611,25 @@ function isHttp(u) {
   return /^https?:\/\//i.test(u);
 }
 
+/* Bare domains are common in the wild ("github.com/rudra-th"), but guessing
+   wrong turns "notes.txt" into a web request. Only known TLDs count. */
+var DOMAIN_TLDS = /^(com|org|net|edu|gov|mil|int|io|co|dev|app|ai|me|tv|cc|info|biz|xyz|shop|store|site|online|tech|design|studio|cloud|page|link|blog|wiki|news|fm|gg|to|in|uk|de|fr|jp|au|ca|us|eu|nl|se|no|fi|dk|es|it|br|ru|cn|ch|at|be|pl|pt|tr|za|mx|ar|nz|ie|il|kr|sg|hk|tw|id|my|ph|th|vn|pk|ae|sa|ng|ke|gh)$/i;
+
+QR.looksLikeDomain = function (value) {
+  var t = str(value).trim();
+  if (!t || t.length > 2048) return '';
+  if (/\s/.test(t)) return '';
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return '';
+
+  var m = /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+)(:\d{1,5})?(\/\S*)?$/i.exec(t);
+  if (!m) return '';
+
+  var labels = m[1].split('.');
+  if (!DOMAIN_TLDS.test(labels[labels.length - 1])) return '';
+
+  return 'https://' + t;
+};
+
 QR.parse = function (raw) {
   var text = str(raw);
   var t = text.trim();

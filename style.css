@@ -466,6 +466,9 @@ main {
   font-weight: 640;
   word-break: break-word;
 }
+/* Focus lands here when the sheet opens; only show a ring for keyboard users. */
+.result-title:focus { outline: none; }
+.result-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
 
 .result-sub { margin-top: 3px; font-size: 13.5px; color: var(--ink-3); }
 
@@ -792,17 +795,50 @@ select {
 .recent-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   width: 100%;
-  padding: 13px 4px;
-  border: 0;
   border-bottom: 1px solid var(--line);
-  background: none;
-  text-align: left;
-  color: inherit;
   transition: background var(--t-fast) var(--ease);
 }
 .recent-item:hover { background: var(--surface-2); }
+
+/* The row body is the button; delete is a sibling so it never nests. */
+.recent-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 13px 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.recent-del {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  margin-left: 4px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease);
+}
+.recent-del svg { width: 15px; height: 15px; }
+.recent-del:hover { background: var(--surface-3); color: var(--ink); }
+.recent-item:hover .recent-del,
+.recent-del:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .recent-del { opacity: .7; }
+}
 
 .recent-icon {
   width: 36px;
@@ -940,6 +976,9 @@ select {
   left: 50%;
   bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 16px);
   z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   transform: translate(-50%, 8px);
   max-width: min(90vw, 380px);
   padding: 11px 16px;
@@ -948,13 +987,32 @@ select {
   color: var(--paper);
   font-size: 13.5px;
   font-weight: 500;
-  text-align: center;
+  text-align: left;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease);
 }
-.toast[data-show="true"] { opacity: 1; transform: translate(-50%, 0); }
+.toast[data-show="true"] { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 .toast.is-error { background: var(--danger); color: #fff; }
+
+.toast > span { min-width: 0; }
+
+.toast-action {
+  flex: none;
+  margin: -4px -8px -4px 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .16);
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.toast-action:hover { background: rgba(255, 255, 255, .26); }
+
+/* ---------- scroll lock ---------- */
+html.is-locked, html.is-locked body { overflow: hidden; }
 
 /* ---------- desktop ---------- */
 @media (min-width: 860px) {
