@@ -32,6 +32,7 @@
     resultKind: $('resultKind'),
     resultTitle: $('resultTitle'),
     resultSub: $('resultSub'),
+    resultWarn: $('resultWarn'),
     resultBody: $('resultBody'),
     resultActions: $('resultActions'),
     resultCopy: $('resultCopy'),
@@ -77,6 +78,8 @@
     themeSeg: $('themeSeg'),
     motionSeg: $('motionSeg'),
     engineSeg: $('engineSeg'),
+    autoOpen: $('autoOpen'),
+    autoCamera: $('autoCamera'),
     histCount: $('histCount'),
     clearHistBtn: $('clearHistBtn'),
     settingsScrim: $('settingsScrim')
@@ -102,6 +105,7 @@
     search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
     share: '<circle cx="17.5" cy="5.5" r="2.6"/><circle cx="6.5" cy="12" r="2.6"/><circle cx="17.5" cy="18.5" r="2.6"/><path d="M9 10.8l6-3.6M9 13.2l6 3.6"/>',
     edit: '<path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/>',
+    app: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>'
   };
 
@@ -112,11 +116,11 @@
 
   var KIND_ICON = {
     url: 'link', wifi: 'wifi', contact: 'contact', email: 'mail',
-    phone: 'phone', sms: 'sms', geo: 'geo', text: 'text'
+    phone: 'phone', sms: 'sms', geo: 'geo', app: 'app', text: 'text'
   };
   var KIND_NAME = {
     url: 'Link', wifi: 'Wi-Fi', contact: 'Contact', email: 'Email',
-    phone: 'Phone', sms: 'Message', geo: 'Location', text: 'Text'
+    phone: 'Phone', sms: 'Message', geo: 'Location', app: 'App link', text: 'Text'
   };
 
   /* ---------- toast / announce ---------- */
@@ -177,6 +181,9 @@
         b.setAttribute('aria-checked', b.getAttribute('data-engine') === s.engine ? 'true' : 'false');
       });
     }
+
+    if (el.autoOpen) el.autoOpen.checked = !!s.autoOpen;
+    if (el.autoCamera) el.autoCamera.checked = !!s.autoCamera;
   }
 
   var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -258,7 +265,10 @@
     el.vpStatus.textContent = status || '';
   }
 
-  function startCamera() {
+  function startCamera(auto) {
+    /* Also used directly as a click handler, where the first argument is an
+       Event — only an explicit `true` means "start on your own". */
+    auto = auto === true;
     if (scanState === 'starting' || scanState === 'live') return;
 
     scanState = 'starting';
@@ -281,6 +291,19 @@
         el.scanNote.textContent = 'Camera is on. Nothing is recorded, uploaded, or stored unless you keep it in Recent.';
       })
       .catch(function (err) {
+        /* Auto start never nags: it either works or leaves the normal idle
+           state in place, with one line saying why. */
+        if (auto) {
+          scanState = 'idle';
+          setViewport('idle', '');
+          el.startBtn.disabled = false;
+          el.startLabel.textContent = 'Start camera';
+          el.scanNote.textContent = (err && err.name === 'NotAllowedError')
+            ? 'Camera access is blocked. Tap Start camera to allow it.'
+            : 'The camera did not start by itself. Tap Start camera.';
+          return;
+        }
+
         scanState = 'error';
         setViewport('idle', '');
         el.startBtn.disabled = false;
@@ -331,6 +354,53 @@
     return base + encodeURIComponent(String(text).slice(0, 1500));
   }
 
+  /* ---------- auto open ---------- */
+  var AUTO_OPEN_GAP = 30000;
+  var lastAuto = { text: '', at: 0 };
+  var autoTimer = null;
+
+  /* Only material that leaves the app can auto open: links and app links.
+     Wi-Fi, contacts and messages always wait for a tap. */
+  function autoTarget(parsed) {
+    if (!parsed || !parsed.href) return '';
+    if (parsed.kind === 'url' || parsed.kind === 'app') return parsed.href;
+    return '';
+  }
+
+  /* In the APK a small bridge takes over so http(s) opens in a Custom Tab and
+     custom schemes go through ACTION_VIEW. On the web this is one navigation. */
+  function openTarget(url) {
+    if (window.Native && typeof window.Native.openExternal === 'function') {
+      try { window.Native.openExternal(url); return; } catch (e) {}
+    }
+    try {
+      window.location.assign(url);
+    } catch (e) {
+      try { window.location.href = url; } catch (e2) {}
+    }
+  }
+
+  function maybeAutoOpen(parsed) {
+    if (!Store.get().autoOpen) return;
+    if (document.hidden) return;
+
+    var url = autoTarget(parsed);
+    if (!url) return;
+
+    /* Closing the sheet resumes the camera, which reads the same code again.
+       Without this gap that would open the link on a loop. */
+    var now = Date.now();
+    if (lastAuto.text === parsed.text && now - lastAuto.at < AUTO_OPEN_GAP) return;
+    lastAuto = { text: parsed.text, at: now };
+
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () {
+      autoTimer = null;
+      if (document.hidden) return;
+      openTarget(url);
+    }, 250);
+  }
+
   /* Actions are either a link (an anchor, so the OS hands it to the real
      browser and long-press offers "open in new tab") or something the app
      does itself (copy, save). */
@@ -340,6 +410,12 @@
 
     if (parsed.kind === 'url' && parsed.href) {
       actions.push({ label: 'Open link', icon: 'external', primary: true, href: parsed.href, external: true });
+      actions.push({ label: 'Copy link', icon: 'copy', run: function () { copyText(parsed.href, 'Link copied.'); } });
+    } else if (parsed.kind === 'app' && parsed.href) {
+      /* No target="_blank": the OS takes the navigation and the tab stays put.
+         If no app claims the scheme, nothing happens — which is why the panel
+         warns before you tap. */
+      actions.push({ label: 'Open in app', icon: 'app', primary: true, href: parsed.href });
       actions.push({ label: 'Copy link', icon: 'copy', run: function () { copyText(parsed.href, 'Link copied.'); } });
     } else if (parsed.kind === 'wifi') {
       if (f.pass) {
@@ -371,12 +447,18 @@
       actions.push({ label: 'Open in maps', icon: 'geo', primary: true, href: parsed.href, external: true });
     } else {
       var asLink = QR.looksLikeDomain(parsed.text);
+      /* Not a domain we are sure about, but still host-shaped: a local IP, a
+         router name, a dev server. Offered quietly, because it is a guess. */
+      var guess = asLink ? '' : QR.looksLikeHost(parsed.text);
 
       if (asLink) {
         actions.push({ label: 'Open as link', icon: 'external', primary: true, href: asLink, external: true });
         actions.push({ label: 'Copy text', icon: 'copy', run: function () { copyText(parsed.text, 'Copied.'); } });
       } else {
         actions.push({ label: 'Copy text', icon: 'copy', primary: true, run: function () { copyText(parsed.text, 'Copied.'); } });
+        if (guess) {
+          actions.push({ label: 'Open in browser', icon: 'external', href: guess, external: true });
+        }
       }
 
       actions.push({
@@ -580,6 +662,11 @@
     el.resultSub.hidden = !parsed.subtitle;
     el.resultBody.textContent = parsed.body;
 
+    el.resultWarn.hidden = parsed.kind !== 'app';
+    el.resultWarn.textContent = parsed.kind === 'app'
+      ? 'This hands the code to another app. Only open codes you trust. If nothing opens, no installed app handles this link.'
+      : '';
+
     el.resultActions.innerHTML = '';
     renderActions(parsed);
     el.resultCopy.textContent = parsed.kind === 'wifi' ? 'Copy raw code' : 'Copy text';
@@ -595,6 +682,7 @@
         text: parsed.kind === 'wifi' ? '' : parsed.text,
         fields: parsed.fields || {}
       });
+      maybeAutoOpen(parsed);
     }
   }
   /* ---------- scroll lock, shared by the result sheet and settings ---------- */
@@ -643,6 +731,9 @@
   }
 
   function closePanel() {
+    /* Closing the sheet cancels a pending auto open: the tap means "not now". */
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+
     el.result.setAttribute('data-open', 'false');
     el.result.removeAttribute('aria-modal');
     el.result.setAttribute('role', 'region');
@@ -1604,6 +1695,22 @@
       if (currentResult) renderActions(currentResult);
     });
 
+    if (el.autoOpen) {
+      el.autoOpen.addEventListener('change', function () {
+        Store.set('autoOpen', el.autoOpen.checked);
+      });
+    }
+
+    if (el.autoCamera) {
+      el.autoCamera.addEventListener('change', function () {
+        Store.set('autoCamera', el.autoCamera.checked);
+        if (el.autoCamera.checked && currentView === 'scan' &&
+            scanState === 'idle' && !currentResult) {
+          startCamera(true);
+        }
+      });
+    }
+
     var armed = false;
     var armTimer = null;
 
@@ -1773,6 +1880,17 @@
     }
 
     go('scan');
+
+    /* "Start camera on open" — only where getUserMedia is allowed without a
+       gesture. iOS may reject it; the catch leaves the Start button in place. */
+    if (Store.get().autoCamera && window.isSecureContext &&
+        window.location.protocol !== 'file:') {
+      setTimeout(function () {
+        if (currentView === 'scan' && scanState === 'idle' && !currentResult) {
+          startCamera(true);
+        }
+      }, 320);
+    }
 
     /* Another tab edited history or settings: refresh what is on screen. */
     if (Store.onExternalChange) {

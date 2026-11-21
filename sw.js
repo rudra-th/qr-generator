@@ -8,7 +8,7 @@
    ========================================================================== */
 'use strict';
 
-var CACHE_VERSION = 'v3';
+var CACHE_VERSION = 'v4';
 var CACHE_PREFIX = 'qr-offline-';
 var CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 

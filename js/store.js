@@ -41,6 +41,9 @@
     if (s.motion !== 'system' && s.motion !== 'reduced') s.motion = 'system';
     if (ENGINES.indexOf(s.engine) === -1) s.engine = 'ddg';
 
+    s.autoOpen = s.autoOpen === true;
+    s.autoCamera = s.autoCamera === true;
+
     return s;
   }
 
@@ -57,7 +60,13 @@
 
   var Store = {
     get: function () {
-      return { theme: settings.theme, motion: settings.motion, engine: settings.engine };
+      return {
+        theme: settings.theme,
+        motion: settings.motion,
+        engine: settings.engine,
+        autoOpen: settings.autoOpen,
+        autoCamera: settings.autoCamera
+      };
     },
 
     set: function (key, value) {

@@ -2615,6 +2615,25 @@ function isHttp(u) {
    wrong turns "notes.txt" into a web request. Only known TLDs count. */
 var DOMAIN_TLDS = /^(com|org|net|edu|gov|mil|int|io|co|dev|app|ai|me|tv|cc|info|biz|xyz|shop|store|site|online|tech|design|studio|cloud|page|link|blog|wiki|news|fm|gg|to|in|uk|de|fr|jp|au|ca|us|eu|nl|se|no|fi|dk|es|it|br|ru|cn|ch|at|be|pl|pt|tr|za|mx|ar|nz|ie|il|kr|sg|hk|tw|id|my|ph|th|vn|pk|ae|sa|ng|ke|gh)$/i;
 
+/* Schemes a QR code must never be allowed to run in one tap. `intent://`
+   can start an arbitrary Android component with extras; the rest are
+   script, local-file and browser-internal surfaces. Everything else — payment
+   apps, maps, music — is fair game, and the payload is always shown first. */
+var SCHEME_DENY = /^(javascript|data|vbscript|file|blob|about|chrome|chrome-extension|view-source|content|intent|android-app|mhtml|jar|wyciwyg|res|resource|ms-[a-z0-9.-]+|http|https)$/i;
+
+/* A dotted string is only a host if its last label is not a file extension.
+   "notes.txt" is a filename, not a website. */
+var FILE_EXTS = /^(txt|text|md|markdown|rst|pdf|docx?|xlsx?|pptx?|csv|tsv|json|ya?ml|xml|html?|xhtml|css|scss|sass|less|js|mjs|cjs|ts|tsx|jsx|py|rb|go|rs|java|kt|kts|swift|c|h|cpp|hpp|cs|php|pl|lua|sh|bash|zsh|bat|cmd|ps1|exe|msi|apk|aab|ipa|dmg|iso|img|bin|zip|rar|7z|tar|gz|bz2|xz|png|jpe?g|gif|webp|avif|svg|bmp|ico|heic|heif|tiff?|mp3|wav|ogg|flac|m4a|aac|opus|mp4|mov|avi|mkv|webm|m4v|log|ini|cfg|conf|env|sql|db|sqlite|bak|tmp|lock|map)$/i;
+
+/* Local and private hosts are usually plain http; everything else gets https. */
+function guessScheme(host) {
+  var h = String(host).toLowerCase();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) return 'http://';
+  if (h === 'localhost' || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) return 'http://';
+  if (/\.(local|localhost|internal|intranet|lan|home|corp|test|example|invalid)$/.test(h)) return 'http://';
+  return 'https://';
+}
+
 QR.looksLikeDomain = function (value) {
   var t = str(value).trim();
   if (!t || t.length > 2048) return '';
@@ -2628,6 +2647,48 @@ QR.looksLikeDomain = function (value) {
   if (!DOMAIN_TLDS.test(labels[labels.length - 1])) return '';
 
   return 'https://' + t;
+};
+
+/* The second, quieter tier: text that is shaped like a host but not a domain
+   we are sure about — "localhost:3000", "192.168.1.1", "myrouter.local",
+   "foo.internal/path". Returns a URL, or '' when the text reads like prose
+   or a filename. The caller presents this as a guess, never as the main act. */
+QR.looksLikeHost = function (value) {
+  var t = str(value).trim();
+  if (!t || t.length > 2048) return '';
+  if (/\s/.test(t)) return '';
+  /* A colon is a scheme only when it is not a port. "localhost:3000" is a
+     host; "bitcoin:bc1…" is a scheme. */
+  if (/^[a-z][a-z0-9+.-]*:(?:\/\/|[^\d])/i.test(t)) return '';
+  if (t.indexOf('@') !== -1) return '';
+  if (t.charAt(0) === '.' || t.charAt(0) === '-' || t.charAt(0) === '/') return '';
+
+  var core = t.split(/[\/?#]/)[0];
+  var host = core.replace(/:\d{1,5}$/, '');
+  if (!host || host.charAt(0) === '[') return '';
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    var octets = host.split('.');
+    for (var i = 0; i < octets.length; i++) {
+      if (+octets[i] > 255) return '';
+    }
+    return 'http://' + t;
+  }
+
+  if (host.indexOf('.') === -1) {
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(host)) return '';
+    if (host.toLowerCase() !== 'localhost' && core.indexOf(':') === -1) return '';
+    return 'http://' + t;
+  }
+
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(host)) return '';
+
+  var labels = host.split('.');
+  var tld = labels[labels.length - 1];
+  if (!/^[a-z]{2,24}$/i.test(tld)) return '';
+  if (FILE_EXTS.test(tld)) return '';
+
+  return guessScheme(host) + t;
 };
 
 QR.parse = function (raw) {
@@ -2742,6 +2803,22 @@ QR.parse = function (raw) {
     return out;
   }
 
+  /* Anything left that starts with a scheme is a hand-off to another app:
+     bitcoin:, upi://, whatsapp://, spotify:, market:// … One letter is not a
+     scheme, it is a Windows drive (C:\…). And "localhost:3000" is a host and a
+     port, not a scheme called "localhost". */
+  var hostPort = /^[a-z0-9.-]+:\d{1,5}(?:\/\S*)?$/i.test(t);
+  var scheme = /^([a-z][a-z0-9+.-]+):(\S[\s\S]*)$/i.exec(t);
+  if (scheme && !hostPort && !SCHEME_DENY.test(scheme[1])) {
+    var rest = scheme[2];
+    out.kind = 'app';
+    out.href = t;
+    out.title = scheme[1].toLowerCase();
+    out.subtitle = firstLine(rest.replace(/^\/\//, ''));
+    out.body = t;
+    return out;
+  }
+
   out.subtitle = 'Text \u00b7 ' + t.length + ' character' + (t.length === 1 ? '' : 's');
   return out;
 };
@@ -2752,7 +2829,7 @@ QR.label = function (parsed) {
   var kindNames = {
     url: 'Link', wifi: 'Wi-Fi', contact: 'Contact',
     email: 'Email', phone: 'Phone', sms: 'Message',
-    geo: 'Location', text: 'Text'
+    geo: 'Location', app: 'App link', text: 'Text'
   };
   return (kindNames[parsed.kind] || 'Code') + ' \u00b7 ' + (parsed.title || '');
 };

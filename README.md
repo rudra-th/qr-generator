@@ -31,7 +31,7 @@ Whatever you scan or create lands in **Recent**, on this device only, so you can
 ## Features
 
 **Offline-first by design**
-One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs - the encoder, both decoders - is checked in next to `index.html`. A service worker keeps a copy of the whole app, so it opens with the Wi-Fi off - even after a reload, even after a restart. Once the page has loaded it never touches the network on its own, and the only outbound traffic is a link you press yourself.
+One folder, not one file. No CDN, no external fonts, no analytics, no build step. Every library it needs - the encoder, both decoders - is checked in next to `index.html`. A service worker keeps a copy of the whole app, so it opens with the Wi-Fi off - even after a reload, even after a restart. Once the page has loaded it never touches the network on its own, and the only outbound traffic is a link you press yourself (or one **Auto open** opens while the tab is visible).
 
 **Scanning that works on real phones**
 The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does not hijack it into fullscreen. Decoding runs through whatever the device does best: the native `BarcodeDetector` where it exists, [jsQR](https://github.com/cozmo/jsQR) everywhere else (that is the iPhone path), and [ZXing](https://github.com/zxing-js/library) as the escalation for 1D codes and difficult frames. The live loop measures how long each decode takes and backs off the resolution on slow hardware rather than dropping frames forever.
@@ -41,6 +41,12 @@ No camera permission? Use a photo you already have. You can also paste a screens
 
 **Actions that match the code**
 A scanned link offers *Open link* and *Copy link*. A bare domain like `example.com/path` is recognised too, and any other text offers *Copy text* plus *Search the web* — the engine (DuckDuckGo, Google or Bing) is chosen in Settings. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
+
+**App links**
+Custom schemes are recognised as their own kind: `bitcoin:`, `upi://`, `whatsapp://`, `spotify:`, `market://` and the like get an *Open in app* button, a plain link the OS hands to whichever app claims it. The dangerous ones — `javascript:`, `data:`, `intent://`, `android-app:`, `file:` and friends — are never turned into links, and the full payload is always shown above the button with a one-line warning. Text that is shaped like a host but not a domain we are sure of (`localhost:3000`, `192.168.1.1`, `myrouter.local`, `foo.internal/path`) gets a quieter *Open in browser* guess; `notes.txt` stays a filename.
+
+**Scanning on your terms**
+Two settings under **Scanning**. **Auto open** opens a scanned link or app link straight away — only while the tab is visible, never twice for the same code within 30 seconds, and never for Wi-Fi, contacts or messages. **Start camera on open** asks for the camera as soon as the app loads, falling back to the Start button where the browser needs a tap first (notably iOS Safari).
 
 **Edit what you scanned**
 Every result also offers *Edit in Create*: the scanned payload is parsed back into the matching form, so a Wi-Fi code arrives with its network name, password and hidden flag filled in, a contact with its fields, and a link in the text box. Change one character, switch the colours, and download your own version. A live scan keeps the Wi-Fi password in memory for this; a history entry does not have it, because passwords are never written to disk.
@@ -90,7 +96,7 @@ The model is simple: **nothing leaves your device unless you ask it to.**
 - History lives in `localStorage` and is never sent anywhere
 - Wi-Fi passwords are never written to history — only the network name and security type are kept
 - No cookies, no analytics, no third-party scripts
-- *Search the web* and *Open link* are the only ways out, and each is a plain link you press yourself: the scanned text goes to the search engine you picked, or the link goes to your browser. Nothing else is transmitted.
+- *Search the web*, *Open link* and *Open in app* are the only ways out, and unless **Auto open** is on, each is a plain link you press yourself: the scanned text goes to the search engine you picked, or the link goes to your browser or the app that claims the scheme. Nothing else is transmitted.
 
 ---
 
@@ -159,7 +165,7 @@ The encoder and the payload parser are pure functions, so they are tested in Nod
 node --test
 ```
 
-Seventeen tests cover every payload type building and parsing back, the escaping that keeps a `;` inside a Wi-Fi password or a `,` inside a contact name from breaking the payload, domain detection, and the colour maths behind the contrast warning.
+Twenty tests cover every payload type building and parsing back, custom app schemes and the schemes that are refused, the escaping that keeps a `;` inside a Wi-Fi password or a `,` inside a contact name from breaking the payload, domain detection, host-shaped guesses, and the colour maths behind the contrast warning.
 
 ---
 

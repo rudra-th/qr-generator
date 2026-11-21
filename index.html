@@ -144,6 +144,7 @@
           </div>
           <h2 class="result-title" id="resultTitle" tabindex="-1"></h2>
           <p class="result-sub" id="resultSub"></p>
+          <p class="result-warn" id="resultWarn" hidden></p>
           <pre class="result-body" id="resultBody"></pre>
           <div class="result-actions" id="resultActions"></div>
           <div class="result-foot">
@@ -307,6 +308,34 @@
       <p class="setting-sub">Used by <b>Search the web</b>. Searching leaves this device and sends the text to the engine.</p>
     </fieldset>
 
+    <fieldset class="seg-field">
+      <legend>Scanning</legend>
+
+      <div class="switch-row">
+        <div>
+          <p class="setting-title">Auto open</p>
+          <p class="setting-sub">Open a scanned link or app link straight away, without a tap.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autoOpen" role="switch" aria-label="Auto open">
+          <span class="switch-track" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="switch-row">
+        <div>
+          <p class="setting-title">Start camera on open</p>
+          <p class="setting-sub">Ask for the camera as soon as the app opens.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autoCamera" role="switch" aria-label="Start camera on open">
+          <span class="switch-track" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <p class="setting-sub">Auto open runs only while this tab is visible, and never twice for the same code within 30 seconds. Wi-Fi, contacts and messages always wait for a tap.</p>
+    </fieldset>
+
     <div class="setting-row">
       <div>
         <p class="setting-title">History</p>
@@ -317,7 +346,7 @@
 
     <div class="about">
       <p><b>QR / Offline</b> — scanning and generating happen in this tab. Nothing is uploaded.</p>
-      <p class="micro">Wi-Fi passwords are never written to history. No accounts, no analytics, no third-party scripts. The only way out is a link you press: <b>Open link</b> or <b>Search the web</b>.</p>
+      <p class="micro">Wi-Fi passwords are never written to history. No accounts, no analytics, no third-party scripts. The only way out is a link you press — <b>Open link</b>, <b>Open in app</b> or <b>Search the web</b> — unless you turn on <b>Auto open</b>.</p>
       <p class="micro"><a href="https://github.com/rudra-th/qr-generator" target="_blank" rel="noopener noreferrer">Source on GitHub</a></p>
     </div>
   </div>

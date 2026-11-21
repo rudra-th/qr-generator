@@ -148,6 +148,82 @@ test('other schemes keep their kind', () => {
   assert.equal(QR.parse('just some words').kind, 'text');
 });
 
+test('custom schemes are recognised as app links', () => {
+  const bitcoin = QR.parse('bitcoin:bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+  assert.equal(bitcoin.kind, 'app');
+  assert.equal(bitcoin.title, 'bitcoin');
+  assert.equal(bitcoin.href, 'bitcoin:bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+  assert.match(bitcoin.subtitle, /^bc1q/);
+
+  const upi = QR.parse('upi://pay?pa=shop@upi&am=10');
+  assert.equal(upi.kind, 'app');
+  assert.equal(upi.title, 'upi');
+
+  assert.equal(QR.parse('spotify:track:abc').kind, 'app');
+  assert.equal(QR.label(QR.parse('whatsapp://send?text=hi')), 'App link \u00b7 whatsapp');
+});
+
+test('dangerous schemes stay plain text', () => {
+  [
+    'javascript:alert(1)',
+    'data:text/html,<b>x</b>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+    'blob:https://example.com/abc',
+    'about:blank',
+    'chrome://settings',
+    'view-source:https://example.com',
+    'content://com.example/secret',
+    'intent://scan/#Intent;scheme=zxing;end',
+    'android-app://com.example'
+  ].forEach((payload) => {
+    assert.equal(QR.parse(payload).kind, 'text', payload);
+  });
+
+  /* A drive letter is not a scheme, and a lone colon is not an app link. */
+  assert.equal(QR.parse('C:\\Users\\me\\notes.txt').kind, 'text');
+  assert.equal(QR.parse('bitcoin:').kind, 'text');
+
+  /* A host and a port is not a scheme called "localhost". */
+  assert.equal(QR.parse('localhost:3000').kind, 'text');
+  assert.equal(QR.parse('intranet:8080').kind, 'text');
+  assert.equal(QR.parse('example.com:8080/x').kind, 'text');
+  assert.equal(QR.parse('bitcoin:1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2').kind, 'app');
+});
+
+test('host-shaped text is offered as a guessed link', () => {
+  const accepted = {
+    'localhost:3000': 'http://localhost:3000',
+    'localhost': 'http://localhost',
+    '192.168.1.1': 'http://192.168.1.1',
+    '10.0.0.5/admin': 'http://10.0.0.5/admin',
+    'myrouter.local': 'http://myrouter.local',
+    'foo.internal/path': 'http://foo.internal/path',
+    'example.zzz': 'https://example.zzz',
+    'example.com': 'https://example.com'
+  };
+  Object.keys(accepted).forEach((input) => {
+    assert.equal(QR.looksLikeHost(input), accepted[input], input);
+  });
+
+  [
+    '',
+    'meeting notes',
+    'notes.txt',
+    'README.md',
+    'a@b.com',
+    'https://example.com',
+    '999.1.1.1',
+    'v1.2.3',
+    'foo..com',
+    '[::1]:3000',
+    'intranet',
+    'C:\\Users'
+  ].forEach((input) => {
+    assert.equal(QR.looksLikeHost(input), '', input);
+  });
+});
+
 test('an empty code is reported as such', () => {
   const parsed = QR.parse('');
   assert.equal(parsed.kind, 'text');
