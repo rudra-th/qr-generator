@@ -8,7 +8,7 @@
    ========================================================================== */
 'use strict';
 
-var CACHE_VERSION = 'v4';
+var CACHE_VERSION = 'v5';
 var CACHE_PREFIX = 'qr-offline-';
 var CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 
@@ -81,6 +81,21 @@ function cachedShell() {
   });
 }
 
+/* Markup and code change together on every deploy. Serving them cache-first
+   let a fresh index.html run against an old app.js — new switches that saved
+   nothing because their listeners were never in the cached script. Code is
+   therefore revalidated on each load, with the cached copy as the offline
+   fallback. Icons stay cache-first; they never change under the same name. */
+var CODE_RE = /\.(?:html|js|css|webmanifest)$/i;
+
+function cachedAsset(request) {
+  return caches.match(request, { ignoreSearch: true });
+}
+
+function offlineResponse() {
+  return new Response('', { status: 504, statusText: 'Offline' });
+}
+
 self.addEventListener('fetch', function (event) {
   var request = event.request;
   if (request.method !== 'GET') return;
@@ -101,9 +116,15 @@ self.addEventListener('fetch', function (event) {
        the host answers with an error page — the cached shell answers instead,
        so the app still boots. */
     event.respondWith(
-      fetch(request)
+      fetch(new Request(request, { cache: 'no-cache' }))
         .then(function (response) {
-          if (response && response.ok) return response;
+          if (response && response.ok) {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) {
+              cache.put(request, copy);
+            });
+            return response;
+          }
           return cachedShell();
         })
         .catch(cachedShell)
@@ -111,8 +132,32 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
+  if (CODE_RE.test(url.pathname)) {
+    event.respondWith(
+      fetch(new Request(request, { cache: 'no-cache' }))
+        .then(function (response) {
+          if (response && response.ok && response.type === 'basic') {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) {
+              cache.put(request, copy);
+            });
+            return response;
+          }
+          return cachedAsset(request).then(function (hit) {
+            return hit || offlineResponse();
+          });
+        })
+        .catch(function () {
+          return cachedAsset(request).then(function (hit) {
+            return hit || offlineResponse();
+          });
+        })
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then(function (hit) {
+    cachedAsset(request).then(function (hit) {
       if (hit) return hit;
 
       return fetch(request)
@@ -125,9 +170,7 @@ self.addEventListener('fetch', function (event) {
           }
           return response;
         })
-        .catch(function () {
-          return new Response('', { status: 504, statusText: 'Offline' });
-        });
+        .catch(offlineResponse);
     })
   );
 });

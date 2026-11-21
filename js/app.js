@@ -19,6 +19,7 @@
     startLabel: $('startLabel'),
     scanActions: $('scanActions'),
     scanFile: $('scanFile'),
+    scanCamera: $('scanCamera'),
     pasteBtn: $('pasteBtn'),
     liveActions: $('liveActions'),
     torchBtn: $('torchBtn'),
@@ -861,11 +862,16 @@
   }
 
   function setupImageInput() {
-    el.scanFile.addEventListener('change', function () {
-      var file = el.scanFile.files && el.scanFile.files[0];
+    function readInput(input) {
+      var file = input.files && input.files[0];
       if (file) handleImageFile(file);
-      el.scanFile.value = '';
-    });
+      input.value = '';
+    }
+
+    el.scanFile.addEventListener('change', function () { readInput(el.scanFile); });
+    if (el.scanCamera) {
+      el.scanCamera.addEventListener('change', function () { readInput(el.scanCamera); });
+    }
 
     if (navigator.clipboard && navigator.clipboard.read && window.isSecureContext) {
       el.pasteBtn.hidden = false;
@@ -1649,6 +1655,10 @@
 
   function openSettings() {
     lastFocused = document.activeElement;
+    /* Re-read storage every time the sheet opens. If another tab changed a
+       setting — or a stale script missed a change — the switches still show
+       what is actually saved. */
+    applySettings();
     updateHistoryCount();
     el.settingsSheet.setAttribute('data-open', 'true');
     el.settingsScrim.hidden = false;

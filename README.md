@@ -37,7 +37,7 @@ One folder, not one file. No CDN, no external fonts, no analytics, no build step
 The camera preview is a live `<video>` with `playsinline`, so iPhone Safari does not hijack it into fullscreen. Decoding runs through whatever the device does best: the native `BarcodeDetector` where it exists, [jsQR](https://github.com/cozmo/jsQR) everywhere else (that is the iPhone path), and [ZXing](https://github.com/zxing-js/library) as the escalation for 1D codes and difficult frames. The live loop measures how long each decode takes and backs off the resolution on slow hardware rather than dropping frames forever.
 
 **Upload, paste, or drop**
-No camera permission? Use a photo you already have. You can also paste a screenshot straight from the clipboard, or drag an image onto the scanner. Small screenshots are upscaled before decoding, because a 200px screenshot of a code is mostly noise at native size.
+No camera permission? **Take photo** opens the phone's camera directly (the `capture` input), while **Choose image** opens the system picker — Photos, Files, Drive, or whatever else the device offers. You can also paste a screenshot straight from the clipboard, or drag an image onto the scanner. Small screenshots are upscaled before decoding, because a 200px screenshot of a code is mostly noise at native size.
 
 **Actions that match the code**
 A scanned link offers *Open link* and *Copy link*. A bare domain like `example.com/path` is recognised too, and any other text offers *Copy text* plus *Search the web* — the engine (DuckDuckGo, Google or Bing) is chosen in Settings. A Wi-Fi code offers *Copy password*. A contact offers *Save contact* and *Call*. The app reads the payload, so you are not left copying a wall of `WIFI:T:...` text by hand.
@@ -132,6 +132,8 @@ ZXing is injected lazily the first time it is needed, so a normal QR scan never 
 `sw.js` caches the whole app under `qr-offline-<version>`. **Bump `CACHE_VERSION` in `sw.js` whenever you change any file listed in `PRECACHE`** — otherwise returning visitors keep the old copy.
 
 A new worker installs quietly and waits. The open page shows *A new version is ready — Reload* instead of swapping code under a running scan; the old cache is deleted on activate, so storage never holds two copies. The worker is only registered over `http(s)`, never `file://`, which is why opening the folder from disk still works exactly as before.
+
+Markup and scripts revalidate on every online load (`cache: 'no-cache'`) and fall back to the cached copy offline. That matters: serving `index.html` network-first while serving `js/*.js` cache-first let a fresh page run against an old script after a deploy — new switches that saved nothing because their listeners were not in the cached file. Icons stay cache-first.
 
 ---
 

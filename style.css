@@ -383,6 +383,7 @@ main {
 .scan-actions { display: grid; gap: 10px; }
 .scan-actions .btn-primary { height: 52px; font-size: 15.5px; }
 .scan-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.scan-secondary #pasteBtn { grid-column: 1 / -1; }
 
 .scan-live {
   display: grid;
@@ -830,6 +831,7 @@ select {
   gap: 12px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   padding: 13px 4px;
   border: 0;
   background: none;
@@ -874,15 +876,28 @@ select {
 }
 .recent-icon svg { width: 17px; height: 17px; }
 
-.recent-text { min-width: 0; flex: 1; }
+.recent-text { min-width: 0; flex: 1; overflow: hidden; }
 .recent-label {
+  /* Block, not inline: text-overflow only applies to block containers. As a
+     span the ellipsis was ignored and long links ran past the row. */
+  display: block;
+  max-width: 100%;
   font-size: 14px;
   font-weight: 550;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.recent-meta { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+.recent-meta {
+  display: block;
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .recent-empty {
   padding: 56px 8px;

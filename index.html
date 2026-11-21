@@ -102,12 +102,20 @@
             <span id="startLabel">Start camera</span>
           </button>
           <div class="scan-secondary">
+            <label class="btn btn-quiet" for="scanCamera">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.7l1.2-1.8h5.2L15.8 6h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/>
+                <circle cx="12" cy="12.5" r="3.2"/>
+              </svg>
+              Take photo
+            </label>
+            <input type="file" id="scanCamera" accept="image/*" capture="environment" class="sr-only">
             <label class="btn btn-quiet" for="scanFile">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/>
                 <path d="M4 17l4.5-4.5a2 2 0 0 1 2.8 0L20 20"/>
               </svg>
-              Upload image
+              Choose image
             </label>
             <input type="file" id="scanFile" accept="image/*" class="sr-only">
             <button class="btn btn-quiet" id="pasteBtn" type="button" hidden>Paste</button>
